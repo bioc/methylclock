@@ -1,61 +1,68 @@
 Package: methylclock
 Type: Package
-Title: Methylclock - DNA methylation-based clocks
-Version: 1.19.0
-Authors@R: c( person("Dolors", "Pelegri-Siso", , "dolors.pelegri@isglobal.org", 
-                      role = c("aut", "cre"), 
-                      comment = c(ORCID = "0000-0002-5993-3003")),
-              person("Juan R.", "Gonzalez", ,"juanr.gonzalez@isglobal.org", 
-                     role = c("aut"), 
-                     comment = c(ORCID = "0000-0003-3267-2146"))
-              )
-Description: This package allows to estimate chronological and gestational DNA methylation
-       (DNAm) age as well as biological age using different methylation clocks.
-       Chronological DNAm age (in years) : Horvath's clock, Hannum's clock, BNN, 
-       Horvath's skin+blood clock, PedBE clock and Wu's clock.
-       Gestational DNAm age : Knight's clock, Bohlin's clock, Mayne's clock and Lee's clocks.
-       Biological DNAm clocks : Levine's clock and Telomere Length's clock.
-biocViews: 
-  DNAMethylation,
-  BiologicalQuestion,
-  Preprocessing,
-  StatisticalMethod,
-  Normalization
+Title: Chronological, Gestational and Biological DNAm Age Estimation with Methylation-Based Clocks
+Version: 1.99.0
+Date: 2026-09-09
+Authors@R: c(
+    person("Dolors", "Pelegri-Siso", email = "dolors.pelegri@isglobal.org",
+           role = c("aut", "cre"), comment = c(ORCID = "0000-0002-5993-3003")),
+    person("Juan R.", "Gonzalez", email = "juanr.gonzalez@isglobal.org",
+           role = "aut", comment = c(ORCID = "0000-0003-3267-2146")),
+    person("Carlos", "Ruiz-Arenas", email = "carlos.ruiz@isglobal.org", role = "aut"))
+Description: Estimates chronological, gestational and biological DNA methylation
+    (DNAm) age, trait scores and epigenetic age acceleration from methylation
+    beta values. Implements 44 published clocks, selectable by name, family or
+    array platform: chronological (Horvath, Hannum, BNN, skin+blood, PedBE, Wu,
+    AltumAge and others, including the cross-platform Garma clock native to
+    EPICv2), gestational (Knight, Bohlin, Mayne, Lee, NEOage), phenotypic and
+    pace-of-aging (Levine, DunedinPACE), telomere length, mitotic counters
+    (epiTOC1/epiTOC2, HypoClock, stemTOC, RepliTali), causal (CausAge, DamAge,
+    AdaptAge) and trait EpiScores. Accepts matrices, data frames, Bioconductor
+    containers or HDF5 files, computing block-wise out-of-core through
+    BigDataStatMeth when the data exceed memory. Provides configurable
+    missing-value imputation (mean, reference or KNN), cell-type deconvolution,
+    intrinsic and extrinsic epigenetic age acceleration (IEAA, EEAA),
+    quality-control reports and plotting functions.
+biocViews:
+    DNAMethylation,
+    BiologicalQuestion,
+    Preprocessing,
+    StatisticalMethod,
+    Normalization
 License: MIT + file LICENSE
-Depends: 
-  R (>= 4.1.0),
-  methylclockData,
-  devtools,
-  quadprog
-Imports: 
-  Rcpp (>= 1.0.6),
-  ExperimentHub,
-  dplyr, 
-  impute, 
-  PerformanceAnalytics,
-  Biobase,
-  ggpmisc,
-  tidyverse,
-  ggplot2, 
-  ggpubr, 
-  minfi, 
-  tibble,
-  RPMM,
-  stats,
-  graphics,
-  tidyr,
-  gridExtra,
-  preprocessCore,
-  dynamicTreeCut,
-  planet
-Suggests: 
-    BiocStyle,
+SystemRequirements: GNU make, C++17
+Depends:
+    R (>= 4.3.0)
+Imports:
+    utils,
+    stats,
+    preprocessCore,
+    Rcpp,
+    BigDataStatMeth,
+    ggplot2,
+    rlang,
+    quadprog
+LinkingTo:
+    Rcpp,
+    RcppEigen,
+    Rhdf5lib,
+    BigDataStatMeth,
+    BH
+Suggests:
+    testthat (>= 3.0.0),
+    digest,
+    impute,
+    ExperimentHub,
     knitr,
-    GEOquery,
-    rmarkdown
-LinkingTo: Rcpp
+    rmarkdown,
+    BiocStyle,
+    kableExtra,
+    minfi,
+    Biobase,
+    SummarizedExperiment
 Encoding: UTF-8
-RoxygenNote: 7.1.2
 URL: https://github.com/isglobal-brge/methylclock
 BugReports: https://github.com/isglobal-brge/methylclock/issues
+RoxygenNote: 7.3.3
 VignetteBuilder: knitr
+Config/testthat/edition: 3

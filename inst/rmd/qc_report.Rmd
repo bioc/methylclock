@@ -1,0 +1,162 @@
+---
+title: "methylclock quality-control report"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: flatly
+    toc: true
+    toc_float: true
+params:
+  qc: null
+  plots: null
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+                      fig.align = "center")
+qc <- params$qc
+plots <- params$plots
+has_age <- isTRUE(qc$has_age)
+note <- function(section) {
+    txt <- qc$notes[[section]]
+    if (!is.null(txt)) cat(paste(txt, collapse = " "), "\n\n")
+}
+# Grow the figures with the number of clocks so the panels keep their shape
+# instead of being squeezed into a fixed height.
+n_shown <- max(1L, length(qc$shown))
+h_dist <- min(22, max(4, ceiling(n_shown / 4) * 1.8 + 1))
+h_corr <- min(14, max(4.5, n_shown * 0.32 + 2.5))
+```
+
+Every section below states what it shows, what it reads as on your data, and
+what produces such a pattern. It describes; the interpretation is yours to
+make. Terms in the tables are defined in the glossary at the end.
+
+## Summary
+
+```{r summary, results = "asis"}
+cat(paste0("- ", qc$commentary, "\n"), sep = "")
+```
+
+## Samples
+
+```{r samples}
+tab <- data.frame(Samples = qc$samples$n)
+if (has_age) {
+    a <- qc$samples$age
+    tab <- cbind(tab, `Min age` = round(a[["Min."]], 1),
+                 `Median age` = round(a[["Median"]], 1),
+                 `Max age` = round(a[["Max."]], 1))
+}
+knitr::kable(tab, row.names = FALSE, check.names = FALSE)
+if (!is.null(qc$groups))
+    knitr::kable(as.data.frame(qc$groups), col.names = c("Group", "N"),
+                 row.names = FALSE)
+```
+
+```{r samples-note, results = "asis"}
+note("variables")
+```
+
+```{r coverage-head, eval = !is.null(qc$coverage), results = "asis"}
+cat("## CpG coverage\n\n")
+note("coverage")
+```
+
+```{r coverage-table, eval = !is.null(qc$coverage)}
+knitr::kable(qc$coverage, row.names = FALSE,
+             col.names = c("Clock", "CpGs in clock", "Present", "% present"))
+```
+
+```{r missing-head, eval = !is.null(qc$missing_by_clock), results = "asis"}
+cat("## Missing values filled in per clock\n\n")
+note("missing")
+```
+
+```{r missing-table, eval = !is.null(qc$missing_by_clock)}
+knitr::kable(qc$missing_by_clock, row.names = FALSE,
+             col.names = c("Clock", "CpGs present", "Missing values",
+                           "% missing"))
+```
+
+```{r agree-head, eval = !is.null(plots$correlation), results = "asis"}
+cat("## Agreement between clocks\n\n")
+note("agreement")
+```
+
+```{r plot-corr, eval = !is.null(plots$correlation), fig.width = 7, fig.height = h_corr}
+plots$correlation
+```
+
+```{r dist-head, eval = !is.null(plots$distributions), results = "asis"}
+cat("## Distribution of the estimates\n\n")
+note("distributions")
+```
+
+```{r plot-dist, eval = !is.null(plots$distributions), fig.width = 8, fig.height = h_dist}
+plots$distributions
+```
+
+```{r acc-head, eval = has_age, results = "asis"}
+cat("## Accuracy against chronological age\n\n")
+note("accuracy")
+```
+
+```{r plot-age, eval = !is.null(plots$age), fig.width = 8, fig.height = 5.5}
+plots$age
+```
+
+```{r accuracy, eval = has_age && !is.null(qc$accuracy)}
+knitr::kable(qc$accuracy, row.names = FALSE)
+```
+
+```{r ba-head, eval = !is.null(plots$bland_altman), results = "asis"}
+cat("### Agreement with age (Bland-Altman)\n\n")
+note("bland_altman")
+```
+
+```{r plot-ba, eval = !is.null(plots$bland_altman), fig.width = 8, fig.height = 5.5}
+plots$bland_altman
+```
+
+```{r sample-head, eval = !is.null(qc$sample_qc), results = "asis"}
+cat("## Per-sample quality\n\n")
+note("samples")
+```
+
+```{r sample-table, eval = !is.null(qc$sample_qc)}
+sq <- qc$sample_qc
+flagged <- sq[sq$is_outlier %in% TRUE, , drop = FALSE]
+flagged <- flagged[order(-flagged$outlier_score), , drop = FALSE]
+if (nrow(flagged))
+    knitr::kable(utils::head(flagged, 20), row.names = FALSE)
+```
+
+```{r sample-none, eval = !is.null(qc$sample_qc), results = "asis"}
+if (!any(qc$sample_qc$is_outlier %in% TRUE))
+    cat("No samples were flagged.\n")
+```
+
+```{r no-age, eval = !has_age, results = "asis"}
+cat("## Accuracy\n\nNo chronological age was supplied, so the error against",
+    "age (`R2`, `MAE`), the bias and the age acceleration are not part of this",
+    "report. The clocks were still computed, and the coverage, agreement and",
+    "distribution sections above do not need ages.\n")
+```
+
+## Glossary
+
+| Term | What it means |
+|---|---|
+| **CpG coverage** | The share of the CpG sites a clock uses that are present in your matrix. |
+| **Imputed (filled-in) value** | A value that was missing in the matrix and was replaced before the clock ran, using the method named above. It is a stand-in, not a measurement. |
+| **r** | Pearson correlation between a clock's estimate and chronological age: how tightly the estimate follows age, regardless of scale. Runs from -1 to 1. |
+| **R2** | The square of *r*: the share of the variation in age that the estimate accounts for. |
+| **MAE** | Median absolute error: the typical size of the gap between estimate and chronological age, in years. Unlike *r*, it is affected by a constant offset. |
+| **Bias** | The average signed gap between estimate and age. Positive means the clock reads older than the calendar age. |
+| **Limits of agreement** | The band holding 95% of the individual gaps between estimate and age (the dashed lines in the Bland-Altman plot). |
+| **z-score** | How many standard deviations a value sits from the mean of the dataset. Used here to describe how far a sample is from the rest. |
+| **Age acceleration** | The part of a clock's estimate not explained by chronological age: the residual of the estimate regressed on age. |
+
+<hr>
+<small>Generated by the methylclock package.</small>

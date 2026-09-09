@@ -1,8 +1,6 @@
-/*
- * File: rtwtypes.h
- *
- * MATLAB Coder version            : 3.2
- * C/C++ source code generated on  : 23-Nov-2018 14:11:15
+/**
+ * @file rtwtypes.h
+ * @brief BNN neural-network clock: runtime type definitions.
  */
 
 #ifndef RTWTYPES_H
@@ -12,7 +10,7 @@
 
 /*=======================================================================*
  * Target hardware information
- *   Device type: Generic->MATLAB Host Computer
+ *   Device type: Generic host computer
  *   Number of bits:     char:   8    short:   16    int:  32
  *                       long:  32    long long:  64
  *                       native word size:  64
@@ -146,16 +144,10 @@ typedef struct {
 #endif
 
 /*
- * Maximum length of a MATLAB identifier (function/variable)
+ * Maximum length of an identifier (function/variable)
  * including the null-termination character. Referenced by
  * rt_logging.c and rt_matrx.c.
  */
 #define TMW_NAME_LENGTH_MAX            64
 #endif
 #endif
-
-/*
- * File trailer for rtwtypes.h
- *
- * [EOF]
- */

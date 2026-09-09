@@ -1,13 +1,11 @@
-//
-// File: bsxfun.cpp
-//
-// MATLAB Coder version            : 3.2
-// C/C++ source code generated on  : 23-Nov-2018 14:11:15
-//
+/**
+ * @file bsxfun.cpp
+ * @brief BNN neural-network clock: element-wise broadcast helper.
+ */
 
 // Include Files
 #include "include/rt_nonfinite.h"
-#include "include/NewModel1Clean.h"
+#include "include/bnn.h"
 #include "include/bsxfun.h"
 #include <Rcpp.h>
 // Function Definitions
@@ -73,9 +71,3 @@ void c_bsxfun( double *a, double *c, int cpgs, int samples)
     ak += cpgs;
   }
 }
-
-//
-// File trailer for bsxfun.cpp
-//
-// [EOF]
-//

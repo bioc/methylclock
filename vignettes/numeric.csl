@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<style xmlns="http://purl.org/net/xbiblio/csl" class="in-text"
+       version="1.0" default-locale="en-GB">
+  <info>
+    <title>Numeric (Vancouver-like)</title>
+    <id>https://bioconductor.org/packages/methylclock/numeric</id>
+    <updated>2026-08-07T00:00:00+00:00</updated>
+    <category citation-format="numeric"/>
+    <summary>Numeric citation style: in-text citations render as bracketed
+    numbers that link to the reference list.</summary>
+  </info>
+  <macro name="author">
+    <names variable="author">
+      <name initialize-with="" name-as-sort-order="all" sort-separator=" "
+            delimiter=", " delimiter-precedes-last="always"
+            et-al-min="7" et-al-use-first="6"/>
+      <substitute>
+        <names variable="editor"/>
+        <text variable="title"/>
+      </substitute>
+    </names>
+  </macro>
+  <macro name="issued-year">
+    <date variable="issued">
+      <date-part name="year"/>
+    </date>
+  </macro>
+  <macro name="container">
+    <choose>
+      <if type="article-journal article webpage post-weblog" match="any">
+        <group delimiter=";">
+          <group delimiter=" ">
+            <text variable="container-title"/>
+            <text macro="issued-year"/>
+          </group>
+          <group>
+            <text variable="volume"/>
+            <text variable="issue" prefix="(" suffix=")"/>
+            <text variable="page" prefix=":"/>
+          </group>
+        </group>
+      </if>
+      <else-if type="chapter paper-conference" match="any">
+        <group delimiter=". ">
+          <text variable="container-title" prefix="In: "/>
+          <text variable="publisher"/>
+          <text macro="issued-year"/>
+        </group>
+      </else-if>
+      <else>
+        <group delimiter=". ">
+          <text variable="publisher"/>
+          <text macro="issued-year"/>
+        </group>
+      </else>
+    </choose>
+  </macro>
+  <macro name="access">
+    <choose>
+      <if variable="DOI">
+        <text variable="DOI" prefix="doi:"/>
+      </if>
+      <else-if variable="URL">
+        <text variable="URL"/>
+      </else-if>
+    </choose>
+  </macro>
+  <citation collapse="citation-number">
+    <sort>
+      <key variable="citation-number"/>
+    </sort>
+    <layout prefix="[" suffix="]" delimiter=",">
+      <text variable="citation-number"/>
+    </layout>
+  </citation>
+  <bibliography second-field-align="flush" entry-spacing="0">
+    <sort>
+      <key variable="citation-number"/>
+    </sort>
+    <layout>
+      <text variable="citation-number" prefix="[" suffix="]"/>
+      <group delimiter=". " suffix=".">
+        <text macro="author"/>
+        <text variable="title"/>
+        <text macro="container"/>
+        <text macro="access"/>
+      </group>
+    </layout>
+  </bibliography>
+</style>

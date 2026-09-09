@@ -1,784 +1,908 @@
 ---
-title: "Chronological and gestational DNAm age estimation using different methylation-based clocks"
-subtitle: "Dolors Pelegri and Juan R Gonzalez"
+title: "Estimating DNA methylation age with methylclock"
+subtitle: "A user's guide: from a methylation matrix to interpretable clock estimates"
 author: |
-    Institute for Global Health (ISGlobal), Barcelona, Spain
-    Bioinformatics Research Group in Epidemiolgy (BRGE)
-    http://brge.isglobal.org
+  Dolors Pelegri and Juan R Gonzalez
+
+  Institute for Global Health (ISGlobal), Barcelona, Spain
+
+  Bioinformatics Research Group in Epidemiology (BRGE)
+
+  http://brge.isglobal.org
 date: "`r Sys.Date()`"
-package: "`r pkg_ver('methylclock')`"
-output: 
-    BiocStyle::html_document:
-        number_sections: true
-        toc: yes
-        fig_caption: yes
+package: "`r BiocStyle::pkg_ver('methylclock')`"
+output:
+  BiocStyle::html_document:
+    number_sections: true
+    toc: yes
+    toc_depth: 2
+    fig_caption: yes
 vignette: >
-    %\VignetteIndexEntry{DNAm age using diffrent methylation clocks}
-    %\VignetteEngine{knitr::rmarkdown}
-    %\VignetteEncoding{UTF-8}
-bibliography: methylclock.bib  
+  %\VignetteIndexEntry{Estimating DNA methylation age with methylclock}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+bibliography: methylclock.bib
+csl: numeric.csl
+link-citations: true
 ---
 
-```{r setup_knitr, include=FALSE}
-knitr::opts_chunk$set(message = FALSE, warning = FALSE,
-                            cache=FALSE, comment = " ")
-options(timeout = 300)
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+    message = FALSE, warning = FALSE, comment = "#>",
+    fig.width = 7, fig.height = 4.5, fig.align = "center", dpi = 96
+)
 ```
 
-#  Description of implemented clocks
+# Introduction
 
-This manual describes how to estimate chronological and gestational DNA
-methylation (DNAm) age as well as biological age using different methylation
-clocks. The package includes the following estimators:
+DNA methylation --- a chemical mark on the genome --- changes with age in a
+remarkably orderly way. Some CpG sites gain methylation as we get older, others
+lose it, and the pattern is regular enough that a model reading anywhere from a handful to hundreds of thousands of
+these sites can estimate a person's age to within a few years. Such a model is an
+**epigenetic clock**.
 
-## Chronological DNAm age (in years)
+Since the first clocks in 2013 [@horvath2013; @hannum2013], many have
+been published. They do not all measure the same thing: some estimate calendar
+(chronological) age, others estimate a *biological* age tied to health and
+mortality, others the age of a fetus, the number of divisions a cell lineage has
+gone through, or the *rate* at which someone is ageing. Because they answer
+different questions, it is common to compute several and compare them.
 
-- **Horvath's clock**: It uses 353 CpGs described in @horvath2013dna. 
-It was trained using 27K and 450K arrays in samples from different tissues. 
-Other three different age-related biomarkers are also computed:
-     - **AgeAcDiff** (DNAmAge acceleration difference): Difference between 
-     DNAmAge and chronological age.
-     <!-- - **IEAA** (Intrinsic Epigenetic Age Acceleration): Residuals obtained  -->
-     <!-- after regressing DNAmAge and chronological age. -->
-     <!-- - **EEAA** (Extrinsic Epigenetic Age Acceleration): Residuals obtained  -->
-     <!-- after regressing DNAmAge and chronological age adjusted by cell counts. -->
-     <!-- This measure was also known as DNAmAge acceleration residual in the  -->
-     <!-- first Horvath's paper. -->
-     - **IEAA** Residuals obtained after regressing DNAmAge and chronological 
-     age adjusted by cell counts.
-     - **EEAA** Residuals obtained after regressing DNAmAge and chronological 
-     age. This measure was also known as DNAmAge acceleration residual in the 
-     first Horvath's paper.
-- **Hannum's clock**: It uses 71 CpGs described in @hannum2013genome. It was 
-trained using 450K array in blood samples. Another are-related biomarer is 
-also computed:
-     - **AMAR** (Apparent Methylomic Aging Rate): Measure proposed in 
-     @hannum2013genome computed as the ratio between DNAm age and the 
-     chronological age.
-- **BNN**: It uses Horvath's CpGs to train a Bayesian Neural Network
-(BNN) to predict DNAm age as described in @alfonso2018.
-- **Horvath's skin+blood clock (skinHorvath)**: Epigenetic clock for skin
-and blood cells. It uses 391 CpGs described in @horvath2018epigenetic.
-It was trained using 450K EPIC arrays in skin and blood sampels.
-- **PedBE clock**: Epigenetic clock from buccal epithelial swabs. It's
-intended purpose is buccal samples from individuals aged 0-20 years old.
-It uses 84 CpGs described in @mcewen2019pedbe. The authors gathered 1,721
-genome-wide DNAm profiles from 11 different cohorts with individuals aged
-0 to 20 years old. 
-- **Wu's clock**: It uses 111 CpGs described in @wu2019dna. It is designed
-to predict age in children. It was trained using 27K and 450K.
-- **BLUP clock**:  It uses 319607 CpGs described in @zhang2019improved. 
-It was trained using 450K and EPIC arrays in blood (13402 samples) and 
-saliva (259 samples). Age predictors based on training sets with various 
-sample sizes using Best Linear Unbiased Prediction (BLUP)  
-- **EN clock**:  It uses 514 CpGs described in @zhang2019improved. It was 
-trained using 450K and EPIC arrays in blood (13402 samples) and saliva 
-(259 samples). Age predictors based on training sets with various sample 
-sizes using Elastic Net (EN) 
+`r BiocStyle::Biocpkg("methylclock")` does exactly that. You give it a methylation
+matrix; it returns each clock's estimate and a small toolbox to plot, compare and
+interpret the results. This guide walks through the whole path: which clocks are
+available and what each is for, what data to provide, how to run them, and --- the
+part that matters most --- how to read what comes back.
 
-## Gestational DNAm age (in weeks)
-
-- **Knight's clock**: It uses 148 CpGs described in @knight2016epigenetic.
-It was trained using 27K and 450K arrays in cord blood samples.
-- **Bohlin's clock**: It uses 96 CpGs described in @bohlin2016prediction.
-It was trained using 450K array in cord blood samples.
-- **Mayne's clock**: It uses 62 CpGs described in @mayne2017accelerated.
-It was trained using 27K and 450K.
-- **EPIC clock**: EPIC-based predictor of gestational age. It uses 176 
-CpGs described in @haftorn2021epic. It was trained using EPIC arrays in 
-cord blood samples.
-- **Lee's clocks**: Three different biological clocks described in
-@lee2019placental are implemented. It was trained for 450K and EPIC
-arrays in placenta samples.
-- **RPC clock**: Robust placental clock (RPC). It uses 558 CpG sites.
-- **CPC clock**: Control placental clock (CPC). It usses 546 CpG sites.
-- **Refined RPC clock**: Useful for uncomplicated term pregnancies
-(e.g. gestational age >36 weeks). It uses 396 CpG sites.
-
-
-The biological DNAm clocks implemented in our package are:
-
-- **Levine's clock** (also know as PhenoAge): It uses 513 CpGs described
-in @levine2018epigenetic. It was trained using 27K, 450K and EPIC arrays
-in blood samples.
-- **Telomere Length's clock** (TL): It uses 140 CpGs described in @lu2019dna
-It was trained using 450K and EPIC arrays in blood samples.
-
-
-
-The main aim of this package is to facilitate the interconnection with R and
-Bioconductor's infrastructure and, hence, avoiding submitting data to online
-calculators. Additionally, `methylclock` also provides an unified way of
-computing DNAm age to help downstream analyses.
-
-# Getting started
-
-The package depends on some R packages that can be previously installed into
-your computer by:
-
-```{r install_req_packages, eval=FALSE}
-install.packages(c("tidyverse", "impute", "Rcpp"))
-```
-
-
-Then `methylclock` package is installed into your computer by executing:
-
-```{r install_packages, eval=FALSE}
-if (!requireNamespace("BiocManager", quietly = TRUE))
-                        install.packages("BiocManager")
-
-BiocManager::install("methylclock")
-``` 
-
-The package is loaded into R as usual:
-
-```{r load_package}
-library(methylclockData)
+```{r load}
 library(methylclock)
 ```
 
-These libraries are required to reproduce this document:
+# Quick start
 
-```{r load_others, eval=TRUE}
-library(Biobase)
-library(tibble)
-library(impute)
+For the impatient: install (Section \@ref(getting-started)), hand
+`methylclock()` a beta matrix, and plot.
+
+```{r quickstart, eval = FALSE}
+library(methylclock)
+res <- methylclock(betas)        # betas: CpGs x samples, values in [0, 1]
+plotDNAmAge(res, age = pheno$age)
+```
+
+Everything below unpacks that: which clocks exist and how to choose one,
+what the input must look like, and how to read what comes back. The figures
+in this guide run on bundled example estimates, so you can reproduce them
+before touching your own data.
+
+# Which clocks are available, and what they are for
+
+Before running anything, it helps to know what you can ask for. The package groups
+clocks by what they *measure*. The tables below are generated from the package
+itself, so they always match the version you have installed. You can reproduce
+any of them, or filter differently, with `clock_list()`.
+
+```{r clock-table, include = FALSE}
+data("clock_catalog", package = "methylclock", envir = environment())
+catalog_table <- function(targets) {
+    d <- clock_catalog[clock_catalog$target %in% targets,
+                       c("clock", "estimates", "tissue", "arrays", "n_cpgs",
+                         "citation")]
+    d$citation <- ifelse(is.na(d$citation), "",
+                         paste0("[@", d$citation, "]"))
+    k <- knitr::kable(d, row.names = FALSE,
+                      col.names = c("Clock", "Estimates", "Tissue", "Arrays",
+                                    "CpGs", "Ref"))
+    if (requireNamespace("kableExtra", quietly = TRUE))
+        kableExtra::kable_styling(k, full_width = TRUE,
+            bootstrap_options = c("striped", "hover", "condensed"))
+    else k
+}
+```
+
+Each table lists, for every clock: its **name** (what you pass to
+`methylclock(..., clocks =)`), what it **estimates** and in which units, the
+**tissue** it was trained on (a clock reads best the tissue it came from:
+a buccal-trained clock applied to blood answers a question nobody asked), the
+**arrays** it supports (a clock listed as `EPIC` only will not apply to 450K
+data), the number of **CpGs** it uses, and a numbered **reference** to the paper
+the clock comes from --- follow the number to the reference list at the end of
+the vignette. All of it is also available programmatically from `clock_list()`,
+`clock_info()` and `clock_catalog`.
+
+## Chronological-age clocks
+
+These estimate **calendar age in years**, and are the workhorses: use them to
+predict age, or to derive *age acceleration* (Section \@ref(age-acceleration)).
+Horvath's clock works across almost any tissue; Hannum's, BLUP and elastic net
+(`EN`) are for blood; the skin & blood clock suits skin and blood samples;
+`AltumAge` and `BNN` are neural-network clocks; `Wu` and `PedBE` are tuned for
+**children**, where the ageing signal is steepest; and `Garma` was trained
+only on probes shared by the 450K, EPICv1 and EPICv2 arrays, so it is the one
+clock here that runs natively on **EPICv2** data (Section
+\@ref(epicv2-arrays)).
+
+```{r tbl-chrono, echo = FALSE}
+catalog_table("chronological")
+```
+
+## Biological-age clocks
+
+Where a chronological clock asks *how old are you*, a biological-age clock asks
+*how old does your body look*. `Levine` (PhenoAge) is trained on clinical
+biomarkers of ageing, so a sample reading older than its calendar age is flagged
+as biologically aged --- the basis of age acceleration. `TL` estimates telomere
+length, which shortens with age.
+
+```{r tbl-bio, echo = FALSE}
+catalog_table(c("phenotypic", "telomere"))
+```
+
+## Gestational-age clocks
+
+For samples taken before or at birth (placenta, cord blood), these estimate
+**gestational age in weeks** rather than years.
+
+```{r tbl-gest, echo = FALSE}
+catalog_table("gestational")
+```
+
+## Mitotic (cell-division) clocks
+
+These do not estimate age but the cumulative number of stem-cell divisions a
+tissue has undergone --- a proxy for proliferative history used mainly in cancer
+research.
+
+```{r tbl-mito, echo = FALSE}
+catalog_table("mitotic")
+```
+
+## Pace of ageing, and other measures
+
+`DunedinPACE` estimates the **rate** of biological ageing (biological years per
+calendar year) rather than an age. A set of *causal* clocks separate damaging from
+adaptive ageing signals.
+
+```{r tbl-pace, echo = FALSE}
+catalog_table(c("pace", "causal"))
+```
+
+## Trait and exposure predictors
+
+Beyond age, the package also carries methylation predictors of lifestyle and
+clinical traits --- body mass index, smoking, alcohol, cholesterol and others.
+These are *not* ages, and are **opt-in**: they are not computed by default, so
+request them by name (e.g. `methylclock(betas, clocks = "McCartney.BMI")`).
+
+```{r tbl-trait, echo = FALSE}
+catalog_table("trait")
+```
+
+The `Ref` column of every table above links to the original paper for that clock
+in the reference list at the end. The same information is available
+programmatically (`clock_catalog$reference`, or `clock_info(name)`).
+
+To inspect any single clock in full --- its engine, platform and generation ---
+use `clock_info()`:
+
+```{r info}
+clock_info("Horvath")
+```
+
+# Getting started
+
+Install from Bioconductor:
+
+```{r install, eval = FALSE}
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+BiocManager::install("methylclock")
+```
+
+Between Bioconductor releases, development accumulates on GitHub; to try the
+latest development version instead:
+
+```{r install-dev, eval = FALSE}
+if (!requireNamespace("remotes", quietly = TRUE))
+    install.packages("remotes")
+remotes::install_github("isglobal-brge/methylclock")
+```
+
+Installation pulls in the packages `methylclock` builds on --- you do not install
+them by hand. Most are lightweight (`preprocessCore`, `ggplot2`, `Rcpp` and a few
+others); the one worth knowing about is **`BigDataStatMeth`** (version 2.0.4 or
+later), which does the heavy numerical work and lets the clocks run on
+large, disk-backed (HDF5) data without loading the whole matrix into memory
+--- if your library carries an older copy, update it first.
+
+## What data to provide
+
+The estimators take a methylation **beta** matrix: one row per CpG (row names are
+the CpG identifiers, like `cg00000029`), one column per sample, and values between
+0 and 1. A data frame whose first column holds the CpG identifiers is also
+accepted.
+
+```{r data-shape, eval = FALSE}
+betas[1:3, 1:3]
+#>            Sample_1 Sample_2 Sample_3
+#> cg00000029     0.52     0.48     0.55
+#> cg00000108     0.91     0.89     0.92
+#> cg00000165     0.12     0.10     0.14
+```
+
+You do not have to convert your data first. If you pass **M-values** (the
+log-ratio scale, outside the 0--1 range), they are detected and converted to
+betas automatically. And besides a matrix or data frame, `methylclock()` accepts
+the objects you typically hold after processing IDATs --- a `minfi` object
+(`GenomicRatioSet`, `MethylSet`), a `SummarizedExperiment` or an `ExpressionSet`
+--- pulling the methylation matrix out of them for you:
+
+```{r input-objects, eval = FALSE}
+methylclock(mvals)          # M-values: converted to betas automatically
+methylclock(grset)          # a minfi GenomicRatioSet
+methylclock(se)             # a SummarizedExperiment
+```
+
+You do not need to worry about a clock's CpGs being missing from your array
+either: a clock is computed only when enough of its CpGs are present, and
+otherwise returns `NA` for every sample rather than a misleading number. Missing
+values among the CpGs that are present are filled in automatically.
+
+For very large cohorts, the same call also reads betas straight from an on-disk
+(HDF5) store and keeps the results there, so memory use stays bounded
+instead of growing with the array.
+
+## Missing values and imputation
+
+Real arrays have gaps --- probes that failed QC on some samples. A clock cannot
+skip a CpG for one sample and not another, so the missing values among the CpGs a
+clock uses are filled in before it runs. How they are filled is up to you, through
+`impute`:
+
+- `"mean"` (the default) fills each gap with that CpG's average across your
+  samples --- simple and predictable.
+- `"knn"` fills it from the CpGs that behave most like it (its nearest neighbours
+  across the samples), so co-methylation is used rather than a flat average. It
+  runs entirely in compiled code and, on a disk-backed array, block by block, so
+  it stays memory-safe even for whole-array clocks.
+- `"reference"` uses a stored reference level for each CpG, and `"none"` does not
+  impute at all --- any sample missing a used CpG is returned as `NA`.
+
+Does the choice matter? `methylclock_betas` is a small, complete real beta matrix,
+so we can blank out some values on purpose and see how close each method gets back
+to the truth. First, the estimates on the complete data:
+
+```{r impute-truth}
+data(methylclock_betas)
+demo_clocks <- c("Horvath", "Levine", "Wu")
+truth <- as.data.frame(methylclock(methylclock_betas, clocks = demo_clocks))
+```
+
+Now blank out 8% of the values at random and recompute, once with each method:
+
+```{r impute-compare}
+set.seed(42)
+blanked <- methylclock_betas
+blanked[sample(length(blanked), round(0.08 * length(blanked)))] <- NA
+
+est <- function(method) {
+    as.data.frame(methylclock(blanked, clocks = demo_clocks, impute = method))
+}
+by_mean <- est("mean")
+by_knn  <- est("knn")
+
+mae <- function(e) {
+    vapply(demo_clocks, function(cl) mean(abs(e[[cl]] - truth[[cl]])), numeric(1))
+}
+data.frame(clock = demo_clocks,
+           `MAE, mean impute` = round(mae(by_mean), 2),
+           `MAE, KNN impute`  = round(mae(by_knn), 2),
+           check.names = FALSE, row.names = NULL)
+```
+
+The error is in years of clock age. For `Horvath` and `Levine`, filling gaps from
+co-methylating CpGs (`"knn"`) recovers the true estimate noticeably better than a
+flat CpG average; for `Wu` the two are almost identical. The lesson is practical:
+with little missing data the default is fine, but if a meaningful fraction of a
+clock's CpGs are missing, `"knn"` recovered them better in the example
+below --- at some extra compute.
+
+# Running the clocks and reading the output
+
+`methylclock()` is the single entry point. Called on its own it computes every
+clock your data support:
+
+```{r estimate-all, eval = FALSE}
+res <- methylclock(betas)
+```
+
+Restrict the set by name, or let the package filter by platform or generation ---
+useful when you know your array:
+
+```{r select, eval = FALSE}
+methylclock(betas, clocks = c("Horvath", "Levine"))
+methylclock(betas, platform = "450K")     # every clock native to 450K
+```
+
+`DNAmAge()` and `DNAmGA()` are shortcuts that preselect the non-gestational and
+gestational clocks, respectively.
+
+The result is a `methylclock` object. Turn it into a plain data frame --- one row
+per sample, one column per clock --- whenever you want to work with the numbers:
+
+```{r result, eval = FALSE}
+res <- methylclock(betas)
+head(as.data.frame(res))
+```
+
+For cohorts too large to hold in memory, the same call can read the betas from an
+on-disk (HDF5) store and keep the results there too, so the workflow does not
+change as your data grow.
+
+# Seeing and interpreting the results
+
+The rest of this guide uses a bundled example so every plot runs as you read.
+`methylclock_demo` holds the clock estimates for a public whole-blood dataset with
+known ages (656 adults, 19--101 years); only the estimates, age and sex are
+stored, not the methylation matrix. One thing to keep in mind while reading:
+this cohort was part of the *training* of several of the clocks shown, so it
+is used here to demonstrate the visualizations --- the out-of-sample
+evaluation comes later, on an independent cohort (Section
+\@ref(quality-control-does-a-clock-fit-your-data)).
+
+```{r demo-data}
+data(methylclock_demo)
+age_clocks <- c("Horvath", "Hannum", "Levine", "skinHorvath",
+                "BLUP", "EN", "AltumAge", "Lin")
+```
+
+Every plotting function returns a `ggplot` object with a clean default look, so
+you can drop it straight into a report or keep tailoring it --- add a title, change
+the theme, tweak the scales. The default theme is exported as `theme_methylclock()`
+if you want to match it on your own figures.
+
+## Predicted versus real age
+
+The first question is whether a clock recovers age. `plotDNAmAge()` plots each
+clock's estimate against the real age, one panel per clock. The dashed line is
+*predicted = real*: the closer the points hug it, the more accurate the clock, and
+each panel is labelled with its `R^2` (how much of the age variation the clock
+explains).
+
+```{r plot-age, fig.height = 5, fig.cap = "Estimated vs. real age. Points on the dashed line are perfect predictions."}
+plotDNAmAge(methylclock_demo, age = methylclock_demo$age, clocks = age_clocks)
+```
+
+**How to read it.** A tight, on-the-line cloud means the clock both *follows* age
+and reports it on the right scale. A cloud that is tilted or shifted off the line
+still tracks age but is miscalibrated for this data --- worth knowing before you
+trust the absolute numbers (Section \@ref(quality-control-does-a-clock-fit-your-data)
+makes this quantitative).
+
+## Do the clocks agree with each other?
+
+`plotClockCorrelation()` shows the correlation between every pair of clocks.
+Age clocks form a block of high positive correlations; a marker like telomere
+length (`TL`) sits at the opposite sign, because it *shortens* as the others rise.
+
+```{r plot-corr, fig.width = 6.5, fig.height = 6, fig.cap = "Correlation between clocks. Warm = agree; TL anchors the opposite sign."}
+plotClockCorrelation(methylclock_demo, clocks = c(age_clocks, "TL"))
+```
+
+**How to read it.** Strong agreement across age clocks is expected and reassuring.
+A clock that correlates weakly with the rest is a flag --- either it measures
+something different (by design) or it is struggling on your data.
+
+## How the estimates are distributed
+
+`plotClockDistributions()` compares the spread of each clock, which is handy for
+spotting a clock on a different scale or with outliers.
+
+```{r plot-dist, fig.cap = "Distribution of each clock's estimates."}
+plotClockDistributions(methylclock_demo, clocks = age_clocks)
+```
+
+# Age acceleration
+
+Two people the same age can have blood that looks epigenetically older or younger.
+**Age acceleration** captures that difference: it is the part of a clock's estimate
+*not* explained by chronological age (the residual after regressing one on the
+other). A positive value means a sample looks older than its years. This --- not
+the raw estimate --- is what most studies correlate with exposures, disease or
+lifestyle.
+
+```{r plot-accel, fig.cap = "Age acceleration per clock (residual in years, centred at zero)."}
+plotAgeAcceleration(methylclock_demo, age = methylclock_demo$age,
+                    clocks = age_clocks)
+```
+
+Split it by a sample variable to look for associations. Here, by sex, men sit
+slightly above women across most clocks --- the commonly reported pattern of
+faster epigenetic ageing in men.
+
+```{r plot-accel-sex, fig.cap = "Acceleration by sex. A group consistently above zero looks epigenetically older."}
+plotAccelerationByGroup(methylclock_demo, age = methylclock_demo$age,
+                        group = methylclock_demo$sex, clocks = age_clocks)
+```
+
+**How to read it.** Look for a group whose boxes sit consistently above (or below)
+zero across clocks: that is a candidate association worth testing formally. A
+shift seen across several clocks is a useful robustness pattern --- though not
+independent evidence, since the clocks are highly correlated with each other.
+
+## Cell composition and immune-aware acceleration
+
+Blood is a mix of cell types whose proportions themselves change with age, so some
+of what a clock reads is really a shift in cell composition rather than ageing
+within cells. To separate the two, first estimate the cell proportions from the
+methylation matrix with `cellCounts()` (reference-based deconvolution):
+
+```{r cellcounts, eval = FALSE}
+cc <- cellCounts(betas)          # samples x blood cell types
+```
+
+Several reference panels are available (`listCellReferences()`). For
+higher-resolution immune profiling you can also use the FlowSorted panels ---
+`"FlowSorted.Blood.EPIC"` (6 cells) and `"FlowSorted.BloodExtended.EPIC"` (12
+immune subtypes) --- which are *not* shipped with the package: install the
+corresponding package yourself, under its own licence, and `cellCounts()` uses it
+if present.
+
+```{r cellcounts-flowsorted, eval = FALSE}
+cc <- cellCounts(betas, reference = "FlowSorted.BloodExtended.EPIC")
+```
+
+`ageAcceleration()` then returns, per clock, the raw difference, the classic
+age-acceleration **residual** (`residual`, predicted regressed on
+chronological age) and --- given the cell proportions --- the cell-adjusted
+residual (`residualCells`, further adjusted for cell composition):
+
+`methylclock_cells` bundles clock estimates together with the estimated cell
+proportions for 795 adult blood samples, so this runs live:
+
+```{r ageaccel}
+data(methylclock_cells)
+cells <- c("Bcell", "CD4T", "CD8T", "Eos", "Mono", "Neu", "NK")
+aa <- ageAcceleration(methylclock_cells, age = methylclock_cells$age,
+                      cell_counts = as.matrix(methylclock_cells[, cells]))
+head(aa)
+```
+
+The two residuals are close but not identical --- adjusting for cell
+composition shifts each sample's value by a bit:
+
+```{r ageaccel-compare}
+h <- aa[aa$clock == "Horvath", ]
+c(correlation = cor(h$residual, h$residualCells),
+  mean_abs_diff = mean(abs(h$residual - h$residualCells)))
+```
+
+Use the plain `residual` when the immune ageing captured by cell-composition
+shifts is part of what you want to measure, and `residualCells` when you
+want ageing *independent* of it --- for example to compare tissues or to
+control for cell-type confounding. Without `cell_counts`, only `ageAcc` and
+`residual` are returned.
+
+Two terminology notes for readers of the literature. The canonical **IEAA**
+is this same adjustment idea *on the Horvath clock*, but defined with a
+specific set of seven immune covariates [@chen2016]: naive and exhausted
+CD8+ T cells, plasmablasts, CD4+ T cells, natural killer cells, monocytes
+and granulocytes. `IEAA()` computes it as defined --- the three rare
+subsets from the methylation data itself, using the published CpG
+estimators (see `EEAA()` below), and the four common ones from
+`cellCounts()` (or a matrix you pass). Because it needs the beta matrix,
+the example is shown but not run; for any other clock, or any other cell
+panel, `residualCells` is the honest label:
+
+```{r ieaa, eval = FALSE}
+res <- DNAmAge(betas, clocks = "Horvath")
+ieaa <- IEAA(res, age = pheno$age, betas = betas)
+```
+
+And the published **EEAA** is not the plain residual but a specific
+cell-weighted blend of the Hannum clock with three immune cell estimators
+(plasmablasts, exhausted and naive CD8+ T cells), its weights fixed once in
+the Women's Health Initiative [@chen2016]. `EEAA()` computes exactly that
+measure: the three cell estimators are derived from the methylation data
+itself as published linear combinations of CpGs --- the same route the
+original software takes --- and the fixed numeric parameters are the ones
+published in European patent EP 3 494 210 B1 [@ep3494210]. It therefore needs the beta
+matrix (blood, 450K/EPIC), not just the clock estimates, so the example is
+shown but not run --- the bundled demo data do not carry the estimator CpGs:
+
+```{r eeaa, eval = FALSE}
+res <- DNAmAge(betas, clocks = "Hannum")
+eeaa <- EEAA(res, age = pheno$age, betas = betas)
+```
+
+`ageAccelerationChen()` offers a related but deliberately different measure,
+in the spirit of Chen et al. [@chen2016]: a Klemera--Doubal weighted blend
+of the Hannum clock with immune cell measures *you supply*, with the blend
+weights **re-estimated from your data** rather than fixed. (The patent
+documents this re-estimated flavour too, as its "dynamic" variant, and
+reports it highly correlated with the fixed-weight measure.) Because both
+the weights and the cell inputs differ from the canonical recipe, its
+output column is named `chenAcc`, not EEAA. It expects the specific immune
+subsets the measure was defined on (naive/exhausted CD8, plasmablasts),
+which the reference panels bundled here do not resolve --- they report
+total CD8+ T cells. For that reason this example too is shown but **not
+run**: substituting the closest available columns would compute a quantity
+that looks like Chen's measure but is biologically a different one, and
+this guide prefers no number to a misleading one.
+
+```{r ageaccel-chen, eval = FALSE}
+chen <- ageAccelerationChen(res$Hannum, age = pheno$age,
+                            cells = immune_proportions)   # the Chen subsets
+```
+ If you need those subsets, the
+proportions can be obtained elsewhere and passed straight to `cells`: from the
+advanced analysis of the online epigenetic-age calculator [@horvath2013],
+which reports these subsets directly. An extended immune deconvolution such
+as the EPIC IDOL-Ext library [@salas2022] is sometimes used instead, but
+note what it does and does not resolve: naive and memory CD8+ T cells and B
+cells, yes; exhausted CD8+ T cells and plasmablasts, no --- so proportions
+from it are stand-ins, and the result is a measure in the spirit of Chen's
+rather than one computed on the original subsets. That library comes under
+its own licence from the authors' institution; install it yourself and cite
+the source you used. Bear in mind that the rarer subsets are reported by
+some algorithms as scores linearly related to abundance rather than as
+cell-type proportions.
+
+# Comparing groups
+
+Most studies do not ask "how old is this sample" but "do these two groups
+differ" --- cases and controls, exposed and unexposed, one population and
+another. The package gives that question three complementary views: the
+*shape* of each group's values, the *trend* of each group along age, and a
+one-look *summary* of the differences with their uncertainty.
+
+The bundled `methylclock_demo` cohort records each sample's reported sex,
+which makes a convenient two-group example:
+
+```{r groups-data}
+data(methylclock_demo)
+demo <- methylclock_demo
+table(demo$sex)
+```
+
+## Shapes: densities by group
+
+`plotClockDensities()` draws each clock's density curve, and with `group =`
+overlays one curve per group, so a shift, a widening or an extra mode is
+visible directly:
+
+```{r groups-densities, fig.width = 8, fig.height = 4.5}
+plotClockDensities(demo, group = demo$sex,
+                   clocks = c("Horvath", "Hannum", "BLUP", "EN"))
+```
+
+There is a reading to be careful with here. If the groups differ in
+*chronological* age, their raw estimates differ with it, and the curves
+separate for that reason alone. The more comparable scale for a group
+contrast is the **age acceleration**, which removes that trend --- and only
+that trend:
+`what = "acceleration"` (with `age =`) draws the same figure on it. Two more
+layouts are available when they say it better: `style = "mirror"` (two
+groups drawn as facing halves) and `style = "ridge"` (every clock stacked in
+one column).
+
+## Trends: fitted lines by group
+
+`plotDNAmAge()` accepts the same `group =`: points and fitted lines are
+drawn per group over the identity line. A group whose line runs above the
+other's is predicted older at the same chronological age; lines with
+different slopes mean that gap changes along the age range:
+
+```{r groups-lines, fig.width = 8, fig.height = 4}
+plotDNAmAge(demo, age = demo$age, group = demo$sex,
+            clocks = c("Horvath", "Hannum"), ncol = 2)
+```
+
+## Summary: the difference, clock by clock
+
+`plotGroupDifference()` condenses the comparison to one row per clock: the
+difference between the two groups' mean acceleration, with its confidence
+interval. The dashed line at zero means "no difference": an interval that
+reaches it is compatible with none, and points whose interval leaves zero
+out are drawn filled.
+
+```{r groups-forest, fig.width = 7, fig.height = 5}
+plotGroupDifference(demo, group = demo$sex, age = demo$age)
+```
+
+When both levels matter --- one group being high tells a different story
+than the other being low, even with the same gap --- `style = "dumbbell"`
+draws the two group means joined by a segment instead. And when no ages are
+known, `what = "estimate"` compares the raw estimates; any difference in
+chronological age between the groups is then part of the number, so read it
+as a description of the groups as they are, not as an age-adjusted contrast.
+
+A boundary worth stating plainly: all of these are **descriptive,
+exploratory summaries**. Removing the age trend adjusts for nothing else ---
+not cell composition, batch, cohort or any other covariate --- and the
+intervals describe each contrast in isolation. When a group difference
+matters to your conclusions, fit a model that carries the covariates your
+design needs; these figures are for seeing, not for deciding.
+
+# Quality control: does a clock fit your data?
+
+Two checks belong here regardless of whether you know the samples' real ages.
+
+**How many of each clock's CpGs your array carries.** A clock computed from only a
+fraction of its CpGs is on thin ice (and below a threshold it is not computed at
+all). `clockCoverage()` reports this from the methylation matrix:
+
+```{r qc-coverage, eval = FALSE}
+clockCoverage(betas)
+#>       clock n_cpgs present pct_present
+#>     Horvath    353     349        98.9
+#>      Hannum     71      65        91.5
+#>         ...
+```
+
+**A note on ages.** The clocks estimate an age (or score) *without* needing the
+true age --- so you can always compute them, compare them (Section
+\@ref(seeing-and-interpreting-the-results)) and check their coverage. You only
+need the real chronological age to measure *accuracy* (`R2`, MAE) or *age
+acceleration*; without it, those are simply not reported.
+
+When you do have ages, `qcReport()` gathers everything --- descriptives, coverage,
+and the accuracy of each age clock, optionally broken down by a variable such as
+sex, case/control status or ethnicity --- in one call:
+
+```{r qc-report}
+data(methylclock_validation)
+grady <- subset(methylclock_validation, cohort == "adult (GSE132203)")
+qcReport(grady, age = grady$age, by = grady$sex,
+         clocks = c("Horvath", "Hannum", "skinHorvath", "BLUP", "EN"))
+```
+
+This section deliberately switches cohorts. `methylclock_demo` (GSE40279) is
+the training cohort of Hannum, BLUP and EN, so accuracy computed on it
+describes training fit, not performance on new data --- it remains a fine
+cohort for *illustrating* the functions, which is how the earlier sections
+use it. The cohort here (GSE132203) is independent of every clock shown, so
+its numbers read as out-of-sample accuracy.
+
+The accuracy has two columns that say different things. A high `r`/`R2` means the
+clock *follows* age; a low `MAE` means it reports it on the *right scale*. A clock
+can have high correlation but a large error --- it tracks age with a constant
+offset. Reading them per group is how you catch a clock that works on average but
+drifts in one subgroup. For just the table, `clockAccuracy()` returns that piece
+alone.
+
+One more angle worth a look is the samples themselves: `sampleQC()` flags any that
+stand out in clock space, and --- given the methylation matrix --- how much of each
+sample's data had to be imputed, so you can spot the samples whose estimates are
+closer to an approximation than a measurement.
+
+```{r sample-qc, eval = FALSE}
+sampleQC(res, betas = betas)     # per-sample outlier score and % missing CpGs
+```
+
+Its `discordance` column measures something the outlier score does not: how
+much the clocks *contradict each other* on a sample. The two are different
+questions --- a sample can be extreme with every clock in agreement, or
+unremarkable on average while the clocks disagree. `plotSampleDiscordance()`
+draws both at once: each sample placed by the clocks' consensus
+(horizontally) and their disagreement (vertically), with the most discordant
+samples labelled by id. Most samples form a low band; one far above it is a
+sample the clocks genuinely disagree about --- a technical problem, or a
+biology worth a second look:
+
+```{r sample-discordance, fig.width = 7, fig.height = 5}
+plotSampleDiscordance(methylclock_demo)
+```
+
+To share the check, `output = "html"` writes the whole thing --- the summary, the
+coverage, accuracy and per-sample tables, and the key plots (agreement,
+distributions, predicted-vs-real and Bland-Altman) --- to a self-contained HTML
+file. Pass `betas =` to include the coverage and missingness, and `impute =` to
+record which imputation method produced the estimates; the report then also lists,
+per clock, how many CpG values had to be filled in:
+
+```{r qc-html, eval = FALSE}
+qcReport(betas = betas, x = res, age = pheno$age, by = pheno$sex,
+         impute = "knn", output = "html", file = "qc.html")
+```
+
+Each section of the report is written out as well as plotted: what the section
+shows, what your own numbers read as, and what produces such a pattern, with a
+glossary of the terms at the end. The same text is on the object, under
+`notes`, so it is also there when you work at the console rather than in HTML.
+
+# Reference ranges: your samples against a named cohort
+
+The growth-chart idea, applied to epigenetic age: `plotReferenceRange()`
+draws, for each clock, the percentile bands of a **reference cohort** along
+chronological age (5th--95th light, 25th--75th darker, median line), with
+your samples on top. A sample inside the central band sits where most of
+that reference does at its age; one outside the light band sits where fewer
+than one in ten of them do. Where the reference has too few samples near an
+age, no band is drawn: there is no rule to measure against there.
+
+The bands describe *the named cohort*, nothing more --- a reference measures
+well what resembles it, in population, tissue, array and processing. The
+most meaningful reference is therefore **your own control samples**, passed
+as a data frame with an `age` column. When none is given, the function falls
+back to a cohort shipped with the package, says so in a message, and the
+subtitle always states which reference was used and its size; the shipped
+options and what each one is (a population-based Swedish cohort, two African
+American cohorts with their recruitment caveats, the two ethnicity strata of
+GSE40279, a paediatric set, and more) are listed in `?plotReferenceRange`.
+None of them stands for people in general.
+
+```{r reference-range, fig.width = 8, fig.height = 6}
+pred <- methylclock_demo[1:12, ]
+plotReferenceRange(pred, age = pred$age, reference = "GSE87571",
+                   clocks = c("Horvath", "Hannum", "skinHorvath", "BLUP"))
+```
+
+How much the choice of reference matters is easy to see with the two
+population strata of GSE40279: the same samples drawn over
+`"GSE40279-Hispanic"` and over `"GSE40279-Caucasian"` land differently,
+because each rule was made from a different population. That is the reason
+the reference is always declared --- and why, if your study has controls,
+they are the rule to prefer.
+
+# Choosing the right clock for your data
+
+The single most useful habit is to pick a clock by what it was *built for* --- its
+tissue and age range --- not by its reputation. The catalogue tables of Section
+\@ref(which-clocks-are-available-and-what-they-are-for) carry a **Tissue**
+column for exactly this, and the registry exposes it as `clock_info(x)$tissue`:
+most clocks here read whole blood, but the package also ships clocks trained
+on buccal epithelium, cord blood, placenta, skin-and-blood and multi-tissue
+panels, and their answers are only calibrated on their own ground. A second bundled dataset,
+`methylclock_validation`, makes the point: it holds estimates for two public blood
+cohorts, **795 adults** (Grady Trauma Project, GEO accession GSE132203) and
+**134 children (1--17 years)** [@alisch2012age].
+
+```{r choose-data}
+data(methylclock_validation)
+adult <- subset(methylclock_validation, cohort == "adult (GSE132203)")
+kids  <- subset(methylclock_validation, cohort == "pediatric (GSE36054)")
+```
+
+`clockAccuracy()` on the children shows the lesson clearly:
+
+```{r choose-kids}
+clockAccuracy(kids, age = kids$age,
+              clocks = c("Horvath", "skinHorvath", "Wu", "BLUP", "Levine"))
+```
+
+The contrast carries the lesson. `BLUP`, an adult-trained clock, still
+*correlates* with age (high `r`) but is badly *miscalibrated* (large `MAE`):
+it reads children's ages with a big offset, because nothing in its training
+looked like a toddler. `Levine`, which measures biological rather than
+chronological age, should not be read as a calendar age here at all. The
+clocks built to include the young --- `Wu`, the skin & blood clock,
+`Horvath` --- land far closer. (One candour note: this very cohort was among
+Wu's *training* datasets, so Wu's sub-year error here reads as training fit
+rather than independent validation; the miscalibration lesson rests on the
+adult-trained clocks, which never saw these children.)
+
+The practical rule: **correlation tells you a clock follows age; only the right
+clock for your tissue and age range reports it correctly.** The registry's
+`platform` and `target` fields (Section \@ref(which-clocks-are-available-and-what-they-are-for))
+are there so you can choose deliberately.
+
+# Longitudinal data: trajectories and slopes
+
+When the same subjects were sampled at several ages, a new question opens:
+not how old each sample reads, but how each person's estimate *moves* over
+time. The package ships a real example of that shape ---
+`methylclock_longitudinal`, 68 children sampled repeatedly from birth to
+about age three --- and three small tools to work with it.
+
+`clockTrajectories()` pairs the samples into per-subject trajectories (one
+row per subject, visit and clock, ordered in time). Technical replicates at
+the same age are averaged, and subjects seen only once are excluded, each
+with a message --- one point has no trajectory. The table it returns is also
+exactly what a mixed-model package expects, for example
+`lme4::lmer(estimate ~ age + (age | subject), data = tr)`: this package
+shapes and displays longitudinal data; the formal inference belongs to those
+tools.
+
+`plotTrajectories()` is the longitudinal view itself: one thin line per
+subject, the group's binned median in bold, and the identity line dashed ---
+a subject moving parallel to it gains one epigenetic year per calendar year:
+
+```{r trajectories, fig.width = 9, fig.height = 4, message = FALSE}
+data(methylclock_longitudinal)
+d <- methylclock_longitudinal
+plotTrajectories(d, subject = d$subject, age = d$age,
+                 clocks = c("Wu", "PedBE", "Horvath"))
+```
+
+The figure carries its own lessons: the paediatric clocks (`Wu`, `PedBE`)
+climb steeply at these ages --- a mixture of genuinely rapid developmental
+change in the methylome and of each clock's own calibration --- while
+`Horvath`, calibrated for adults, barely moves here. The wobble of the thin
+lines is faithful too: repeated clock estimates are noisy, and the plot does
+not smooth it away.
+
+`trajectoryRates()` turns each subject's visits into a **slope**: how many
+epigenetic years the estimate advances per calendar year, 1 meaning it
+tracks the calendar. This is a property of the estimate's trajectory, not by
+itself a measure of biological ageing pace --- of the clocks here, only
+`DunedinPACE` was designed and validated to estimate such a pace. With two
+visits the slope is a difference quotient and carries no per-subject
+uncertainty (`se` is `NA`: read it as orientative); with three or more it is
+a fitted slope with its standard error. Read individual slopes with care: the
+technical replication error of many clocks spans several years
+[@higginschen2022], and the difference of two measurements carries the noise
+of both, so over a short follow-up a single slope can be mostly measurement.
+The steadier signal is in the aggregate --- the distribution of slopes in a
+group, or their group difference, for which
+`plotGroupDifference()` accepts these rates directly (one row per subject).
+
+```{r rates, message = FALSE}
+head(trajectoryRates(d, subject = d$subject, age = d$age, clocks = "Wu"))
+```
+
+# Beyond age: a trait predictor
+
+Not every clock estimates an age. The **trait and exposure predictors**
+(Section \@ref(trait-and-exposure-predictors)) are methylation scores for
+lifestyle and clinical traits --- smoking, body mass index, alcohol and others.
+They are opt-in, so you request them by name. A quick example with a smoking
+predictor, on a public cohort with recorded smoking status:
+
+```{r trait-run, eval = FALSE}
+methylclock(betas, clocks = "McCartney.Smoking")
+```
+
+`methylclock_smoking` bundles that score for 464 blood samples labelled *never*,
+*former* or *current* smokers (GEO accession GSE50660 [@tsaprouni2014smoking]),
+so we can see whether it tracks the exposure:
+
+```{r trait-data}
+data(methylclock_smoking)
+tapply(methylclock_smoking$McCartney.Smoking, methylclock_smoking$smoking,
+       median)
+```
+
+```{r trait-plot, fig.width = 5.5, fig.height = 4, fig.cap = "Methylation smoking score by smoking status."}
 library(ggplot2)
-library(ggpmisc)
-library(GEOquery)
+ggplot(methylclock_smoking,
+       aes(smoking, McCartney.Smoking, fill = smoking)) +
+    geom_boxplot(alpha = 0.85, outlier.size = 0.6) +
+    scale_fill_manual(values = c("#CC6677", "#332288", "#44AA99")) +
+    labs(x = NULL, y = "McCartney smoking score") +
+    theme_methylclock() + theme(legend.position = "none")
 ```
 
-# DNA Methylation clocks
-
-The main function to estimate chronological and biological mDNA age is called
-`DNAmAge` while the gestational DNAm age is estimated using `DNAmGA` function.
-Both functions have similar input arguments. Next subsections detail some of
-the important issues to be consider before computind DNAm clocks. 
-
-## Data format
-The methylation data is given in the argument `x`. They can be either beta or
-M values. The argument `toBetas` should be set to TRUE when M values are
-provided. The `x` object can be:
-
-- A **matrix** with CpGs in rows and individuals in columns having the name
-of the CpGs in the rownames.
-
-- A **data frame** or a **tibble** with CpGs in rows and individuals in columns
-having the name of the CpGs in the first column (e.g.  cg00000292, cg00002426,
-cg00003994,  ...) as required in the Horvath's DNA Methylation Age Calculator
-website (https://dnamage.genetics.ucla.edu/home).
-
-- A **GenomicRatioSet** object, the default method to encapsulate methylation
-data in `minfi` Bioconductor package.
-
-- An **ExpressionSet** object as obtained, for instance, when downloading
-methylation data from GEO (https://www.ncbi.nlm.nih.gov/geo/). 
-
-## Data nomalization
-In principle, data can be normalized by using any of the existing standard
-methods such as QN, ASMN, PBC, SWAN, SQN, BMIQ (see a revision of those
-methods in @wang2015systematic). `DNAmAge` function includes the BMIQ method
-proposed by @teschendorff2012beta using Horvath's robust implementation that
-basically consists of an optimal R code implementation and optimization
-procedures. This normalization is recommended by Horvath since it improves
-the predictions for his clock. This normalization procedure is very
-time-consuming. In order to overcome these difficulties, we have parallelize
-this process using `BiocParallel` library. This step is not mandatory, so that,
-you can use your normalized data and set the argument `normalize` equal to
-FALSE (default).
-
-## Missing individual's data
-All the implemented methods require complete cases. `DNAmAge` function has an
-imputation method based on KNN implemented in the function `knn.impute` from 
-`impute` Bioconductor package. This is performed when missing data is present
-in the CpGs used in any of the computed clocks. There is also another option
-based on a fast imputation method that imputes missing values by the median of
-required CpGs as recommended in @bohlin2016prediction. This is recommended when
-analyzing 450K arrays since `knn.impute` for large datasets may be very time
-consuming. Fast imputation can be performed by setting `fastImp=TRUE` which is
-not the default value. 
-
-## Missing CpGs of DNAm clocks {#section-missingCpGs}
-By default the package computes the different clocks when there are more than
-80% of the required CpGs of each method. Nothing is required when having
-missing CpGs since the main functions will return NA for those estimators
-when this criteria is not meet. Let us use a test dataset (`TestDataset`)
-which is available within the package to illustrate the type of information
-we are obtaining:
-
-```{r check}
-# Get TestDataset data
-TestDataset <- get_TestDataset()
-
-cpgs.missing <- checkClocks(TestDataset)
-```
-
-```{r checkGA}
-cpgs.missing.GA <- checkClocksGA(TestDataset)
-```
-
-The objects `cpgs.missing` and `cpgs.missing.GA` are lists having the missing
-CpGs of each clock
-
-```{r showMissing}
-names(cpgs.missing)
-```
-
-We can see which are those CpGs for a given clock (for example Hannum) with
-the function `commonClockCpgs` :
-
-```{r showMissNames}
-commonClockCpgs(cpgs.missing, "Hannum" )
-
-commonClockCpgs(cpgs.missing.GA, "Bohlin" )
-
-``` 
-
-In Section \@ref(section-example) we describe how to change this 80% threshold.
-
-
-## Cell counts
-The EEAA method requires to estimate cell counts. We use the package `meffil`
-(@min2018meffil) that provides some functions to estimate cell counts using
-predefined datasets. This is performed by setting `cell.count=TRUE` (default
-value). The reference panel is passed through the argument
-`cell.count.reference`. So far, the following options are available:
-
-- **"blood gse35069 complete"**: methylation profiles from
-@reinius2012differential for purified blood cell types. It includes CD4T, CD8T,
-Mono, Bcell, NK, Neu and Eos.
-- **"blood gse35069"**: methylation profiles from @reinius2012differential for
-purified blood cell types. It includes CD4T, CD8T, Mono, Bcell, NK and Gran.
-- **"blood gse35069 chen"**: methylation profiles from @chen2017epigenome blood
-cell types. It includes CD4T, CD8T, Mono, Bcell, NK, Neu and Eos.
-- **"andrews and bakulski cord blood"**. Cord blood reference from
-@bakulski2016dna. It includes Bcell, CD4T, CD8T, Gran, Mono, NK and nRBC.
-- **"cord blood gse68456"** Cord blood methylation profiles from
-@de2015nucleated. It includes CD4T, CD8T, Mono, Bcell, NK, Neu, Eos and RBC.
-- **"gervin and lyle cord blood"** Cord blood reference generated by Kristina
-Gervin and Robert Lyle, available at `miffil` package. It includes CD14, Bcell,
-CD4T, CD8T, NK, Gran.
-- **"saliva gse48472"**: Reference generated from the multi-tissue pannel from
-@slieker2013identification. It includes Buccal, CD4T, CD8T, Mono, Bcell, NK,
-Gran.
-- **"guintivano dlpfc"**: Reference generated from @guintivano2013cell. It
-includes dorsolateral prefrontal cortex, NeuN_neg and NeuN_pos.
-- **"combined cord blood"**: References generated based in samples assayed by
-Bakulski et al, Gervin et al., de Goede et al., and Lin et al. It includes
-umbilical cord blood, Bcell, CD4T, CD8T, Gran, Mono, NK and nRBC
-
-
-# Chronological and biological DNAm age estimation
-
-Next we illustrate how to estimate the chronological DNAm age using several
-datasets which aim to cover different data input formats.
-
-
-**IMPORTANT NOTE**: On some systems we can find an error in the `DNAmAge()`
-function when parameter `cell.count = TRUE`. This error is related to 
-`preprocessCore` package and can be fixed by disabling multi-threading
-when installing the preprocessCore package using the command
-
-```
-BiocManager::install("preprocessCore", 
-                     configure.args = "--disable-threading", 
-                     force = TRUE)
-```
-
-
-## Data in Horvath's format (e.g. `csv` with CpGs in rows) {#section-example}
-Let us start by reproducing the results proposed in @horvath2013dna. It uses
-the format available in the file 'MethylationDataExample55.csv" from his
-tutorial (available [here](https://dnamage.genetics.ucla.edu/home)). These data
-are available at `methylclock` package. Although these data can be loaded into
-R by using standard functions such as `read.csv` we hihgly recommend to use
-functions from `tidiverse`, in particular `read_csv` from `readr` package.
-The main reason is that currently researchers are analyzing Illumina 450K 
-or EPIC arrays that contains a huge number of CpGs that can take a long time
-to be loaded when using basic importing R function. These functions import
-`csv` data as tibble which is one of the possible formats of `DNAmAge` function
-
-```{r load_horvath_example}
-library(tidyverse)
-MethylationData <- get_MethylationDataExample()
-MethylationData
-```
-
-*IMPORTANT NOTE*: Be sure that the first column contains the CpG names.
-Sometimes, your imported data look like this one (it can happen, for
-instance, if the `csv` file was created in R without indicating
-`row.names=FALSE`)
-
-```
-> mydata
-
-# A tibble: 473,999 x 6
-    X1 Row.names BIB_15586_1X BIB_33043_1X EDP_5245_1X KAN_584_1X 
-    <int> <chr>            <dbl>        <dbl>       <dbl>      <dbl>     
-1     1 cg000000~       0.635        0.575       0.614      0.631     
-2     2 cg000001~       0.954        0.948       0.933      0.950     
-3     3 cg000001~       0.889        0.899       0.901      0.892     
-4     4 cg000001~       0.115        0.124       0.107      0.123     
-5     5 cg000002~       0.850        0.753       0.806      0.815     
-6     6 cg000002~       0.676        0.771       0.729      0.665     
-7     7 cg000002~       0.871        0.850       0.852      0.863     
-8     8 cg000003~       0.238        0.174       0.316      0.206
-```
-
-If so, the first column must be removed before being used as the input
-object in `DNAmAge` funcion. It can be done using `dplyr` function
-
-```
-> mydata2 <- select(mydata, -1)
-
-# A tibble: 473,999 x 5
-    Row.names BIB_15586_1X BIB_33043_1X EDP_5245_1X KAN_584_1X 
-    <chr>            <dbl>        <dbl>       <dbl>      <dbl>     
-1    cg000000~       0.635        0.575       0.614      0.631     
-2    cg000001~       0.954        0.948       0.933      0.950     
-3    cg000001~       0.889        0.899       0.901      0.892     
-4    cg000001~       0.115        0.124       0.107      0.123     
-5    cg000002~       0.850        0.753       0.806      0.815     
-6    cg000002~       0.676        0.771       0.729      0.665     
-7    cg000002~       0.871        0.850       0.852      0.863     
-8    cg000003~       0.238        0.174       0.316      0.206
-```
-
-In any case, if you use the object `mydata` that contains the CpGs in the
-second column, you will see this error message:
-
-```
-> DNAmAge(mydata)
-Error in DNAmAge(mydata) : First column should contain CpG names
-```
-
-Once data is in the proper format, DNAmAge can be estimated by simply:
-
-```{r DNAmAge_horvath, warning=TRUE}
-age.example55 <- DNAmAge(MethylationData)
-age.example55
-```
-
-
-As mention in Section \@ref(section-missingCpGs) some clocks returns NA when
-there are more than 80% of  the required CpGs are missing as we can see when
-typing
-
-```{r show_cpg_miss}
-missCpGs <- checkClocks(MethylationData)
-```
-
-Here we can observe that 72.1% of the required CpGs for SkinHorvath clock are
-missing. We could estimate DNAm age using this clock just changing the argument
-`min.perc` in `DNAmAge`.  For example, we can indicate that the minimum amount
-of required CpGs for computing a given clock should be 25%.  
-
-```{r DNAmAgemp_horvath, warning=TRUE}
-age.example55.2 <- DNAmAge(MethylationData, min.perc = 0.25)
-age.example55.2
-```
-
-In that case, we see as SkinHorvath clock is estimated (though it can be
-observed that the estimation is not very accurate - this is why we considered
-at least having 80% of the required CpGs).
-
-By default all available clocks (Hovarth, Hannum, Levine, BNN, skinHorvath,...)
-are estimated. One may select a set of clocks by using the argument `clocks`
-as follows:
-
-
-```{r DNAmAge_horvath_sel, warning=TRUE}
-age.example55.sel <- DNAmAge(MethylationData, clocks=c("Horvath", "BNN"))
-age.example55.sel
-```
-
-
-## Age acceleration
-
-However, in epidemiological studies one is interested in assessing whether age
-acceleration is associated with a given trait or condition. Three different
-measures can be computed:
-
-- **ageAcc**: Difference between DNAmAge and chronological age.
-- **ageAcc2**: Residuals obtained after regressing chronological age and
-DNAmAge (similar to IEAA).
-- **ageAcc3**: Residuals obtained after regressing chronological age and
-DNAmAge adjusted for cell counts (similar to EEAA).
-
-All this estimates can be obtained for each clock when providing chronological
-age through `age` argument. This information is normally provided in a
-different file including different covariates (metadata or sample annotation
-data). In this example data are available at 'SampleAnnotationExample55.csv'
-file that is also available at `methylclock` package:
-
-```{r covariates_horvath_example}
-library(tidyverse)
-path <- system.file("extdata", package = "methylclock")
-covariates <- read_csv(file.path(path, "SampleAnnotationExample55.csv"))
-covariates
-```
-
-In this case, chronological age is available at  `Age` column:
-
-```{r age_horvath_example}
-age <- covariates$Age
-head(age)
-``` 
-
-The different methylation clocks along with their age accelerated estimates
-can be simply computed by:
-
-```{r DNAmAge_horvath_cell, warning=TRUE}
-age.example55 <- DNAmAge(MethylationData, age=age, cell.count=TRUE)
-age.example55
-```
-
-By default, the argument `cell.count` is set equal to TRUE and, hence, can
-be omitted. This implies that `ageAcc3` will be computed for all clocks.
-In some occassions this can be very time consuming. In such cases one can
-simply estimate DNAmAge, accAge and accAge2 by setting `cell.count=FALSE`.
-NOTE: see section 3.5 to see the reference panels available to estimate
-cell counts.
-
-
-Then, we can investigate, for instance, whether the accelerated age is
-associated with Autism. In that example we will use a non-parametric
-test (NOTE: use t-test or linear regression for large sample sizes)
-
-```{r compare_autistic}
-autism <- covariates$diseaseStatus
-kruskal.test(age.example55$ageAcc.Horvath ~ autism)
-kruskal.test(age.example55$ageAcc2.Horvath ~ autism)
-kruskal.test(age.example55$ageAcc3.Horvath ~ autism)
-```
-
-## Chronological age prediction using `ExpressionSet` data
-
-One may be interested in assessing association between chronologial age and DNA
-methylation age or evaluating how well chronological age is predicted by
-DNAmAge. In order to illustrate this analysis we downloaded data from GEO
-corresponding to a set of healthy individuals (GEO accession number GSE58045).
-Data can be retrieved into R by using `GEOquery` package as an `ExpressionSet`
-object that can be the input of our main function. 
-
-
-```{r get_gse58045, echo=FALSE}
-# ff <- "c:/juan/CREAL/BayesianPrediction/Bayesian_clock/paper"
-# load(file.path(ff, "data/GSE58045.Rdata"))
-```
-
-
-```{r get_geo_gse58045, eval=TRUE}
-# To avoid connection buffer size 
-Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 10)
-
-# Download data
-dd <- GEOquery::getGEO("GSE58045")
-gse58045 <- dd[[1]]
-
-# Restore connection buffer size
-Sys.setenv("VROOM_CONNECTION_SIZE" = 131072)
-```
-
-```{r show_gse58045}
-gse58045
-```
-
-The chronological age is obtained by using `pData` function from  `Biobase`
-package that is able to deal with `ExpressionSet` objects:
-
-```{r age_gse58045}
-pheno <- pData(gse58045)
-age <- as.numeric(pheno$`age:ch1`)
-``` 
-
-And the different DNA methylation age estimates are obtained by using `DNAmAge`
-function (NOTE: as there are missing values, the program automatically runs
-`impute.knn` function to get complete cases):
-
-```{r DNAmAge_gse58045, warning=TRUE}
-age.gse58045 <- DNAmAge(gse58045, age=age)
-age.gse58045
-```
-
-Figure \ref{fig:horvath_age} shows the correlation between DNAmAge obtained
-from Horvath's method and the chronological age, while Figure \ref{fig:bnn_age}
-depicts the correlation of a new method based on fitting a Bayesian Neural
-Network to predict DNAmAge based on Horvath's CpGs.
-
-```{r horvat_age}
-plotDNAmAge(age.gse58045$Horvath, age)
-```
-
-```{r bnn_age}
-plotDNAmAge(age.gse58045$BNN, age, tit="Bayesian Neural Network")
-```
-
-## Use of DNAmAge in association studies
-
-Let us illustrate how to use DNAmAge information in association studies
-(e.g case/control, smokers/non-smokers, responders/non-responders, ...).
-GEO number GSE19711 contains transcriptomic and epigenomic data of a study
-in lung cancer. Data can be retrieved into R by
-
-
-```{r get_gse19711, echo=FALSE}
-# ff <- "c:/juan/CREAL/BayesianPrediction/Bayesian_clock/paper"
-# load(file.path(ff, "data/GSE19711.Rdata"))
-```
-
-```{r get_geo_gse19711, eval=TRUE}
-# To avoid connection buffer size 
-Sys.setenv("VROOM_CONNECTION_SIZE" = 131072 * 10)
-
-# Download data
-dd <- GEOquery::getGEO("GSE19711")
-gse19711 <- dd[[1]]
-
-# Restore connection buffer size
-Sys.setenv("VROOM_CONNECTION_SIZE" = 131072)
-```
-
-
-The object `gse19711`is an `ExpressionSet` that can contains CpGs and
-phenotypic (e.g clinical) information
-
-```{r show_gse19711}
-gse19711
-```
-
-Let us imagine we are interested in comparing the accelerated age between
-cases and controls. Age and case/control status information can be obtained by:
-
-```{r get_case_control}
-pheno <- pData(gse19711)
-age <- as.numeric(pheno$`ageatrecruitment:ch1`)
-disease <- pheno$`sample type:ch1`
-table(disease)
-disease[grep("Control", disease)] <- "Control"
-disease[grep("Case", disease)] <- "Case"
-disease <- factor(disease, levels=c("Control", "Case"))
-table(disease)
-```
-
-The DNAmAge estimates of different methods is computed by 
-
-```{r DNAmAge_gse19711, warning=TRUE}
-age.gse19711 <- DNAmAge(gse19711, age=age)
-```
-
-We can observe there are missing data. The funcion automatically impute those
-using `impute.knn` function from `impute` package since complete cases are
-required to compute the different methylation clocks. The estimates are:
-
-```{r show_age.gse19711}
-age.gse19711
-```
-
-
-The association between disease status and DNAmAge estimated using Horvath's
-method can be computed by
-
-```{r assoc_hpv}
-mod.horvath1 <- glm(disease ~ ageAcc.Horvath , 
-                    data=age.gse19711,
-                    family="binomial")
-summary(mod.horvath1)
-
-mod.skinHorvath <- glm(disease ~ ageAcc2.Horvath , 
-                       data=age.gse19711,
-                       family="binomial")
-summary(mod.skinHorvath)
-
-mod.horvath3 <- glm(disease ~ ageAcc3.Horvath , 
-                    data=age.gse19711,
-                    family="binomial")
-summary(mod.horvath3)
-```
-
-We do not observe statistical significant association between age acceleration
-estimated using Horvath method and the risk of developing lung cancer. It is
-worth to notice that Horvath's clock was created to predict chronological age
-and the impact of age acceleration of this clock on disease may be limited.
-On the other hand, Levine's clock aimed to distinguish risk between same-aged
-individuals. Let us evaluate whether this age acceleration usin Levine's clock
-is associated with lung cancer
-
-```{r mod_levine}
-mod.levine1 <- glm(disease ~ ageAcc.Levine , data=age.gse19711,
-                    family="binomial")
-summary(mod.levine1)
-
-mod.levine2 <- glm(disease ~ ageAcc2.Levine , data=age.gse19711,
-                    family="binomial")
-summary(mod.levine2)
-
-mod.levine3 <- glm(disease ~ ageAcc3.Levine , data=age.gse19711,
-                    family="binomial")
-summary(mod.levine3)
-```
-
-Here we observe as the risk of developing lung cancer increases
-`r round((exp(coef(mod.levine1)[2]) - 1)*100,2)` percent per each unit in the
-age accelerated variable (`ageAcc`). Similar conclusion is obtained when using
-`ageAcc2` and `ageAcc3` variables.
-
-In some occasions cell composition should be used to assess association. This
-information is calculated in `DNAmAge` function and it can be incorporated in
-the model by:
-
-```{r assoc_cell}
-cell <- attr(age.gse19711, "cell_proportion")
-mod.cell <- glm(disease ~ ageAcc.Levine + cell, data=age.gse19711,
-                    family="binomial")
-summary(mod.cell)
-```
-
-Here we observe as the positive association disapears after adjusting
-for cell counts.
-
-## Use of DNAm age in children
-
-
-```{r get_gse109446, echo=FALSE}
-# ff <- "c:/juan/CREAL/BayesianPrediction/Bayesian_clock/paper"
-# load(file.path(ff, "data/GSE109446.Rdata"))
-```
-
-```{r get_geo_109446, eval=TRUE}
-dd <- GEOquery::getGEO("GSE109446")
-gse109446 <- dd[[1]]
-```
-
-
-```{r age_gse109446, warning=TRUE}
-controls <- pData(gse109446)$`diagnosis:ch1`=="control"
-gse <- gse109446[,controls]
-age <- as.numeric(pData(gse)$`age:ch1`)
-age.gse <- DNAmAge(gse, age=age)
-```
-
-```{r plotClocks}
-plotCorClocks(age.gse)
-```
-
-
-# Gestational DNAm age estimation
-
-## Model predicion
-Let us start by reproducing the example provided in @knight2016epigenetic as
-a test data set (file 'TestDataset.csv'). It consists on 3 individuals whose
-methylation data are available as supplementary data of their paper. The data
-is also available at `methylclock` package as a data frame.
-
-```{r load_3_inds}
-TestDataset[1:5,]
-```
-
-The Gestational Age (in months) is simply computed by
-
-```{r age_test, warning=TRUE}
-ga.test <- DNAmGA(TestDataset)
-ga.test
-```
-
-like in DNAmAge we can use the parameter `min.perc` to set the minimum missing
-percentage.
-
-The results are the same as those described in the additional file 7
-of @knight2016epigenetic (link [here]
-(https://static-content.springer.com/esm/art%3A10.1186%2Fs13059-016-1068-z/MediaObjects/13059_2016_1068_MOESM7_ESM.docx))
-
-Let us continue by illustrating how to compute GA of real examples.
-The PROGRESS cohort data is available in the additional file 8 of 
-@knight2016epigenetic. It is available at `methylclock` as a `tibble`:
-
-```{r get_progress}
-data(progress_data)
-```
-
-This file also contains different variables that are available in this
-`tibble`. 
-
-```{r progressClin}
-data(progress_vars)
-```
-
-The Clinical Variables including clinical assesment of gestational age
-(EGA) are available at this `tibble`.
-
-The Gestational Age (in months) is simply computed by
-
-```{r age_progress, warning=TRUE}
-ga.progress <- DNAmGA(progress_data)
-ga.progress
-```
-
-
-We can compare these results with the clinical GA available in the variable EGA
-
-```{r plot_progress}
-plotDNAmAge(ga.progress$Knight, progress_vars$EGA, 
-            tit="GA Knight's method", 
-            clock="GA")
-```
-
-Figure 3b (only for PROGRESS dataset) in @knight2016epigenetic representing
-the correlation between GA acceleration and birthweight can be reproduced by
-
-```{r plotAcc}
-library(ggplot2)
-progress_vars$acc <- ga.progress$Knight - progress_vars$EGA
-p <- ggplot(data=progress_vars, aes(x = acc, y = birthweight)) +
-    geom_point() +
-    geom_smooth(method = "lm", se=FALSE, color="black") +
-    xlab("GA acceleration") +
-    ylab("Birthweight (kgs.)") 
-p
-```
-
-
-Finally, we can also estimate the "accelerated gestational age" using two
-of the the three different estimates previously described (`accAge`, `accAge2`)
-by provinding information of gestational age through `age` argument. Notice
-that in that case `accAge3` cannot be estimates since we do not have all the
-CpGs required by the default reference panel to estimate cell counts for
-gestational age which is "andrews and bakulski cord blood". 
-
-
-```{r acccelerated_ga, warning=TRUE}
-accga.progress <- DNAmGA(progress_data, 
-                        age = progress_vars$EGA, 
-                        cell.count=FALSE)
-accga.progress
-
-```
-
-
-One can also check which clocks can be estimated given the CpGs available
-in the methylation data by
-
-```{r check_clocks_2}
-checkClocksGA(progress_data)
-```
-
-
-# Correlation among DNAm clocks
-
-We can compute the correlation among biological clocks using the function
-`plotCorClocks` that requires the package `ggplot2` and `ggpubr` to be
-installed in your computer. 
-
-We can obtain, for instance, the correlation among the clocks estimated for
-the healthy individuals study previosuly analyze (GEO accession number
-GSE58045) by simply executing:
-
-```{r plotCorClockHealth}
-plotCorClocks(age.gse58045)
+The score climbs from never- through former- to current-smokers, exactly the
+ordering you would hope for. Two caveats to read it correctly: a trait score is a
+**relative** value, not a calibrated quantity like age --- it is meaningful *within*
+a dataset, compared across groups or against a reference, not as an absolute
+number. And this is an illustration of *how* to compute and use such a clock, not
+a validation of the predictor. As always, the plot is a plain `ggplot`, so you can
+restyle it for your own report.
+
+# EPICv2 arrays
+
+The MethylationEPIC v2 array (2023) renamed its probes (suffixes such as
+`_BC21`), removed some that older arrays carried, measures some CpGs with
+several replicate probes, and redesigned others. The clocks in this package
+were built on 450K/EPICv1 names, so on EPICv2 data they fail *visibly*: the
+probe names do not match, each clock's coverage collapses, and the result is
+`NA` with a warning rather than a number.
+
+One clock is the exception by construction: `Garma` [@garma2024] was trained
+only on probes present on the 450K, EPICv1 **and** EPICv2 arrays, so it runs
+natively on all three with no conversion.
+
+A caution for the impatient: stripping the version suffixes from EPICv2
+probe names by hand makes the names match again --- and quietly ignores the
+removed, replicated and redesigned probes, which can produce plausible but
+wrong estimates. Support for running the older clocks on EPICv2 through a
+proper probe mapping is planned as future work.
+
+# Session info
+
+```{r session}
+sessionInfo()
 ```
 
 # References
-
-```{sessioninfo}
-utils::sessionInfo()
-```

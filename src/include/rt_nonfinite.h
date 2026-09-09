@@ -1,8 +1,6 @@
-/*
- * File: rt_nonfinite.h
- *
- * MATLAB Coder version            : 3.2
- * C/C++ source code generated on  : 23-Nov-2018 14:11:15
+/**
+ * @file rt_nonfinite.h
+ * @brief BNN neural-network clock: non-finite value support.
  */
 
 #ifndef RT_NONFINITE_H
@@ -47,9 +45,3 @@ typedef struct {
 } IEEESingle;
 
 #endif
-
-/*
- * File trailer for rt_nonfinite.h
- *
- * [EOF]
- */

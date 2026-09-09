@@ -1,8 +1,6 @@
-/*
- * File: rtGetInf.h
- *
- * MATLAB Coder version            : 3.2
- * C/C++ source code generated on  : 23-Nov-2018 14:11:15
+/**
+ * @file rtGetInf.h
+ * @brief BNN neural-network clock: runtime infinity support.
  */
 
 #ifndef RTGETINF_H
@@ -17,9 +15,3 @@ extern real_T rtGetMinusInf(void);
 extern real32_T rtGetMinusInfF(void);
 
 #endif
-
-/*
- * File trailer for rtGetInf.h
- *
- * [EOF]
- */

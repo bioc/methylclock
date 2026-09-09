@@ -1,59 +1,62 @@
 # methylclock
 
+Estimation of chronological, gestational and biological DNA methylation
+(DNAm) age, trait scores and epigenetic age acceleration from methylation
+beta values.
 
-To use methylclock under R<4.1 you need to install the package under main branch or release <= 0.99.0 (https://github.com/isglobal-brge/methylclock/releases/tag/v0.7.7)
+Version 2.0 is a rewrite of the package: 44 published clocks selectable by
+name, family or array platform; input as matrices, data frames, Bioconductor
+containers or HDF5 files, with block-wise out-of-core computation through
+[BigDataStatMeth](https://cran.r-project.org/package=BigDataStatMeth) when
+the data exceed memory; configurable missing-value imputation (mean,
+reference or KNN), cell-type deconvolution, intrinsic and extrinsic
+epigenetic age acceleration (IEAA, EEAA), quality-control reports and
+plotting functions. See `NEWS.md` for the full changelog.
 
-## Installation : 
+## Installation
 
-To install methylclock you need  R >= 4.1 : 
+From Bioconductor devel (R devel required):
 
-```r{install, eval=FALSE}
-
+```r
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
-
-BiocManager::install("methylclock")
-
+BiocManager::install("methylclock", version = "devel")
 ```
 
-## Description
- 
-This package allows to estimate chronological and gestational DNA methylation (DNAm) age as well as biological age using different methylation clocks. The package includes the following estimators:
+From GitHub (the `devel` branch holds the current source):
 
-### Chronological DNAm age (in years)
+```r
+BiocManager::install("methylclockData")
+BiocManager::install("isglobal-brge/methylclock@devel")
+```
 
-- **Horvath's clock**: It uses 353 CpGs described in @horvath2013dna. It was trained using 27K and 450K arrays in samples from different tissues. Other three different age-related biomarkers are also computed:
-     - **AgeAcDiff** (DNAmAge acceleration difference): Difference between DNAmAge and chronological age.
-     <!-- To be removed - **IEAA** (Intrinsic Epigenetic Age Acceleration): Residuals obtained after regressing DNAmAge and chronological age adjusted by cell counts. -->
-     <!-- To be removed - **EEAA** (Extrinsic Epigenetic Age Acceleration): Residuals obtained after regressing DNAmAge and chronological age. This measure was also known as DNAmAge acceleration residual in the first Horvath's paper.-->
-     - **IEAA** Residuals obtained after regressing DNAmAge and chronological age adjusted by cell counts.
-     - **EEAA** Residuals obtained after regressing DNAmAge and chronological age. This measure was also known as DNAmAge acceleration residual in the first Horvath's paper.
-- **Hannum's clock**: It uses 71 CpGs described in @hannum2013genome. It was trained using 450K array in blood samples. Another are-related biomarer is also computed:
-     - **AMAR** (Apparent Methylomic Aging Rate): Measure proposed in @hannum2013genome computed as the ratio between DNAm age and the chronological age.
-- **BNN**: It uses Horvath's CpGs to train a Bayesian Neural Network (BNN) to predict DNAm age as described in @alfonso2018.
-- **Horvath's skin+blood clock (skinHorvath)**: Epigenetic clock for skin and blood cells. It uses 391 CpGs described in @horvath2018epigenetic. It was trained using 450K EPIC arrays in skin and blood sampels.
-- **PedBE clock**: Epigenetic clock from buccal epithelial swabs. It's intended purpose is buccal samples from individuals aged 0-20 years old. It uses 84 CpGs described in @mcewen2019pedbe. The authors gathered 1,721 genome-wide DNAm profiles from 11 different cohorts with individuals aged 0 to 20 years old. 
-- **Wu's clock**: It uses 111 CpGs described in @wu2019dna. It is designed to predict age in children. It was trained using 27K and 450K.
-- **BLUP clock**:  It uses 319607 CpGs described in @zhang2019improved. It was trained using 450K and EPIC arrays in blood (13402 samples) and saliva (259 samples). Age predictors based on training sets with various sample sizes using Best Linear Unbiased Prediction (BLUP)  
-- **EN clock**:  It uses 514 CpGs described in @zhang2019improved. It was trained using 450K and EPIC arrays in blood (13402 samples) and saliva (259 samples). Age predictors based on training sets with various sample sizes using Elastic Net (EN) 
+Clock coefficients are distributed through the
+[methylclockData](https://bioconductor.org/packages/methylclockData/)
+package (ExperimentHub), with a Zenodo fallback, so no manual data setup is
+needed.
 
-### Gestational DNAm age (in weeks)
+## Usage
 
-- **Knight's clock**: It uses 148 CpGs described in @knight2016epigenetic. It was trained using 27K and 450K arrays in cord blood samples.
-- **Bohlin's clock**: It uses 96 CpGs described in @bohlin2016prediction. It was trained using 450K array in cord blood samples.
-- **Mayne's clock**: It uses 62 CpGs described in @mayne2017accelerated. It was trained using 27K and 450K.
-- **EPIC clock**: EPIC-based predictor of gestational age. It uses 176 CpGs described in @haftorn2021epic. It was trained using EPIC arrays in cord blood samples.
-- **Lee's clocks**: Three different biological clocks described in @lee2019placental are implemented. It was trained for 450K and EPIC arrays in placenta samples.
-     - **RPC clock**: Robust placental clock (RPC). It uses 558 CpG sites.
-     - **CPC clock**: Control placental clock (CPC). It usses 546 CpG sites.
-     - **Refined RPC clock**: Useful for uncomplicated term pregnancies (e.g. gestational age >36 weeks). It uses 396 CpG sites.
+```r
+library(methylclock)
+data(methylclock_betas)
+res <- methylclock(methylclock_betas, clocks = c("Horvath", "Levine"))
+head(as.data.frame(res))
+```
 
-
-The biological DNAm clocks implemented in this package are:
-
-- **Levine's clock** (also know as PhenoAge): It uses 513 CpGs described in @levine2018epigenetic. It was trained using 27K, 450K and EPIC arrays in blood samples.
-- **Telomere Length's clock** (TL): It uses 140 CpGs described in @lu2019dna It was trained using 450K and EPIC arrays in blood samples.
+The vignette (`vignette("methylclock")`) documents the clock catalogue, the
+input formats, imputation, age acceleration, quality control and the
+plotting suite.
 
 ## Citation
-<a id="1">[1]</a> 
-Dolors Pelegri-Siso, Paula de Prado, Justiina Ronkainen, Mariona Bustamante, Juan R Gonzalez, methylclock: a Bioconductor package to estimate DNA methylation age, Bioinformatics, Volume 37, Issue 12, 15 June 2021, Pages 1759â€“1760, doi: [10.1093/bioinformatics/btaa825](https://doi.org/10.1093/bioinformatics/btaa825). PMID: 32960939.
+
+Dolors Pelegri-Siso, Paula de Prado, Justiina Ronkainen, Mariona Bustamante,
+Juan R Gonzalez. methylclock: a Bioconductor package to estimate DNA
+methylation age. *Bioinformatics* 37(12):1759-1760, 2021.
+<https://doi.org/10.1093/bioinformatics/btaa825>
+
+## License
+
+MIT. Individual clock coefficient sets keep their original licenses, stated
+per clock in the catalogue (`clock_catalog`) and in the methylclockData
+documentation.

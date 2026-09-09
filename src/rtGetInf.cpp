@@ -1,13 +1,11 @@
-/*
- * File: rtGetInf.cpp
- *
- * MATLAB Coder version            : 3.2
- * C/C++ source code generated on  : 23-Nov-2018 14:11:15
+/**
+ * @file rtGetInf.cpp
+ * @brief BNN neural-network clock: runtime infinity support.
  */
 
 /*
  * Abstract:
- *       MATLAB for code generation function to initialize non-finite, Inf and MinusInf
+ *       Runtime support to initialize non-finite Inf and MinusInf
  */
 #include "include/rtGetInf.h"
 #define NumBitsPerChar                 8U
@@ -133,9 +131,3 @@ real32_T rtGetMinusInfF(void)
   minfF.wordL.wordLuint = 0xFF800000U;
   return minfF.wordL.wordLreal;
 }
-
-/*
- * File trailer for rtGetInf.cpp
- *
- * [EOF]
- */

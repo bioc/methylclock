@@ -1,13 +1,11 @@
-/*
- * File: rtGetNaN.cpp
- *
- * MATLAB Coder version            : 3.2
- * C/C++ source code generated on  : 23-Nov-2018 14:11:15
+/**
+ * @file rtGetNaN.cpp
+ * @brief BNN neural-network clock: runtime NaN support.
  */
 
 /*
  * Abstract:
- *       MATLAB for code generation function to initialize non-finite, NaN
+ *       Runtime support to initialize non-finite NaN
  */
 #include "include/rtGetNaN.h"
 #define NumBitsPerChar                 8U
@@ -91,9 +89,3 @@ real32_T rtGetNaNF(void)
 
   return nanF.wordL.wordLreal;
 }
-
-/*
- * File trailer for rtGetNaN.cpp
- *
- * [EOF]
- */

@@ -1,8 +1,6 @@
-/*
- * File: rtGetNaN.h
- *
- * MATLAB Coder version            : 3.2
- * C/C++ source code generated on  : 23-Nov-2018 14:11:15
+/**
+ * @file rtGetNaN.h
+ * @brief BNN neural-network clock: runtime NaN support.
  */
 
 #ifndef RTGETNAN_H
@@ -15,9 +13,3 @@ extern real_T rtGetNaN(void);
 extern real32_T rtGetNaNF(void);
 
 #endif
-
-/*
- * File trailer for rtGetNaN.h
- *
- * [EOF]
- */

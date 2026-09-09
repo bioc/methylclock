@@ -1,13 +1,11 @@
-//
-// File: repmat.cpp
-//
-// MATLAB Coder version            : 3.2
-// C/C++ source code generated on  : 23-Nov-2018 14:11:15
-//
+/**
+ * @file repmat.cpp
+ * @brief BNN neural-network clock: matrix replication helper.
+ */
 
 // Include Files
 #include "include/rt_nonfinite.h"
-#include "include/NewModel1Clean.h"
+#include "include/bnn.h"
 #include "include/repmat.h"
 
 // Function Definitions
@@ -31,9 +29,3 @@ void repmat(double b[], int sizeobs)
     }
   }
 }
-
-//
-// File trailer for repmat.cpp
-//
-// [EOF]
-//
