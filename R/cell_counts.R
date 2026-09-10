@@ -93,18 +93,47 @@ listCellReferences <- function() {
     list(beta = B, quantiles = NULL, subsets = NULL, external = TRUE)
 }
 
-# Load a reference panel (a list with beta / quantiles / subsets) from the data
-# mirror. Kept out of mcd_resource, which normalises to the coefficient contract.
+# Load a reference panel (a list with beta / quantiles / subsets), first from
+# the data mirror when one is configured, otherwise through the manifest's
+# `references` rows (one per panel, resolved by the remote backends). Kept out
+# of mcd_resource, which normalises to the coefficient contract.
 .cell_reference <- function(name) {
     if (!name %in% listCellReferences())
         stop("Unknown cell reference '", name, "'. See listCellReferences().",
              call. = FALSE)
-    id <- gsub("[^a-z0-9]+", "_", tolower(name))
-    path <- file.path(.mcd_local_root(), "cellref", paste0(id, ".rds"))
-    if (!file.exists(path))
-        stop("Cell reference '", name, "' not found in the data mirror.",
-             call. = FALSE)
-    readRDS(path)
+    key <- paste0("cellref:", name)
+    if (!is.null(.mcd_cache[[key]]))
+        return(.mcd_cache[[key]])
+    ref <- NULL
+    root <- .mcd_local_root(required = FALSE)
+    if (!is.null(root)) {
+        id <- gsub("[^a-z0-9]+", "_", tolower(name))
+        path <- file.path(root, "cellref", paste0(id, ".rds"))
+        if (file.exists(path))
+            ref <- readRDS(path)
+    }
+    if (is.null(ref)) {
+        man <- mcd_manifest()
+        idx <- which(man$id == "references" & man$object == name)
+        if (length(idx) == 1L) {
+            row <- man[idx, , drop = FALSE]
+            for (backend in mcd_backends()) {
+                ref <- switch(backend,
+                    local  = NULL,           # already tried above
+                    eh     = .mcd_load_eh("references", row),
+                    zenodo = .mcd_load_zenodo("references", row),
+                    NULL
+                )
+                if (!is.null(ref)) break
+            }
+        }
+    }
+    if (is.null(ref))
+        stop("Cell reference '", name, "' could not be loaded (no data ",
+             "mirror is configured and the remote backends did not resolve ",
+             "it).", call. = FALSE)
+    .mcd_cache[[key]] <- ref
+    ref
 }
 
 # Quantile-normalise the CpG subsets of a beta matrix to the reference's stored

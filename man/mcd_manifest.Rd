@@ -12,7 +12,8 @@ A data frame, one row per resource identifier.
 \description{
 Reads and caches the manifest that describes the available resources
 (identifier, stored object name, class, dimensions, columns, size, checksum
-and source).
+and source). A copy ships with the package; a configured local data root
+(see \code{\link{mcd_backends}}) takes precedence when present.
 }
 \examples{
 man <- mcd_manifest()

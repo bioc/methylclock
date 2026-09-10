@@ -1,8 +1,8 @@
 Package: methylclock
 Type: Package
 Title: Chronological, Gestational and Biological DNAm Age Estimation with Methylation-Based Clocks
-Version: 1.99.0
-Date: 2026-09-09
+Version: 1.99.1
+Date: 2026-09-10
 Authors@R: c(
     person("Dolors", "Pelegri-Siso", email = "dolors.pelegri@isglobal.org",
            role = c("aut", "cre"), comment = c(ORCID = "0000-0002-5993-3003")),
@@ -39,6 +39,7 @@ Imports:
     preprocessCore,
     Rcpp,
     BigDataStatMeth,
+    ExperimentHub,
     ggplot2,
     rlang,
     quadprog
@@ -52,7 +53,6 @@ Suggests:
     testthat (>= 3.0.0),
     digest,
     impute,
-    ExperimentHub,
     knitr,
     rmarkdown,
     BiocStyle,

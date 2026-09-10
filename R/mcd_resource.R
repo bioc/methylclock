@@ -55,8 +55,10 @@ mcd_backends <- function(backends) {
 }
 
 # Resolve the local root (a directory holding rda/ + MANIFEST.csv).
-# Precedence: option -> env var -> nearby data directory.
-.mcd_local_root <- function() {
+# Precedence: option -> env var -> nearby data directory. With required = FALSE
+# an unset root returns NULL so a backend can decline and let the chain move on
+# to the next source instead of failing the whole resolution.
+.mcd_local_root <- function(required = TRUE) {
     root <- getOption("methylclockData.local_root",
                       default = Sys.getenv("METHYLCLOCKDATA_MIRROR", unset = NA))
     if (is.na(root) || !nzchar(root)) {
@@ -65,10 +67,12 @@ mcd_backends <- function(backends) {
                        file.path("..", "..", "data-mirror")))
             if (dir.exists(cand)) { root <- cand; break }
     }
-    if (is.na(root) || !dir.exists(root))
+    if (is.na(root) || !dir.exists(root)) {
+        if (!required) return(NULL)
         stop("Local data root not found. Set options(methylclockData.local_root=) ",
              "or the METHYLCLOCKDATA_MIRROR env var to a directory with rda/ + ",
              "MANIFEST.csv.")
+    }
     root
 }
 
@@ -76,7 +80,8 @@ mcd_backends <- function(backends) {
 #'
 #' Reads and caches the manifest that describes the available resources
 #' (identifier, stored object name, class, dimensions, columns, size, checksum
-#' and source).
+#' and source). A copy ships with the package; a configured local data root
+#' (see \code{\link{mcd_backends}}) takes precedence when present.
 #' @return A data frame, one row per resource identifier.
 #' @seealso \code{\link{mcd_resource}}
 #' @examples
@@ -86,9 +91,15 @@ mcd_backends <- function(backends) {
 mcd_manifest <- function() {
     if (!is.null(.mcd_cache$.manifest))
         return(.mcd_cache$.manifest)
-    path <- file.path(.mcd_local_root(), "MANIFEST.csv")
+    # A configured local root takes precedence (it may carry newer rows);
+    # otherwise fall back to the copy shipped with the package.
+    root <- .mcd_local_root(required = FALSE)
+    path <- if (!is.null(root)) file.path(root, "MANIFEST.csv") else ""
     if (!file.exists(path))
-        stop("MANIFEST.csv not found at ", path)
+        path <- system.file("extdata", "MANIFEST.csv", package = "methylclock")
+    if (!nzchar(path) || !file.exists(path))
+        stop("MANIFEST.csv not found (neither a local data root nor the ",
+             "installed package provides one).")
     man <- utils::read.csv(path, stringsAsFactors = FALSE)
     .mcd_cache$.manifest <- man
     man
@@ -96,7 +107,10 @@ mcd_manifest <- function() {
 
 # local backend: load `<root>/rda/<id>.rda` and return the named object.
 .mcd_load_local <- function(id, row) {
-    path <- file.path(.mcd_local_root(), "rda", paste0(id, ".rda"))
+    root <- .mcd_local_root(required = FALSE)
+    if (is.null(root))
+        return(NULL)                         # no mirror -> try next backend
+    path <- file.path(root, "rda", paste0(id, ".rda"))
     if (!file.exists(path))
         return(NULL)                         # not resolvable here -> try next backend
     e <- new.env(parent = emptyenv())
@@ -276,8 +290,28 @@ mcd_resource <- function(id, verify = FALSE, cache = TRUE) {
 
 # local backend for a file resource: an HDF5 bundle under <root>/altumage/.
 .mcd_file_local <- function(id, row) {
-    path <- file.path(.mcd_local_root(), "altumage", paste0(id, ".hdf5"))
+    root <- .mcd_local_root(required = FALSE)
+    if (is.null(root))
+        return(NULL)                         # no mirror -> try next backend
+    path <- file.path(root, "altumage", paste0(id, ".hdf5"))
     if (file.exists(path)) path else NULL
+}
+
+# ExperimentHub backend for a file resource: download (or reuse) the hub's
+# cached copy of the file named by the manifest's `eh_id` and return its path.
+# ExperimentHub::cache() gives the on-disk file without loading it into R.
+.mcd_file_eh <- function(id, row) {
+    eh_id <- .mcd_field(row, "eh_id")
+    if (is.na(eh_id)) return(NULL)
+    if (!requireNamespace("ExperimentHub", quietly = TRUE))
+        return(NULL)
+    path <- tryCatch({
+        hub <- ExperimentHub::ExperimentHub()
+        unname(ExperimentHub::cache(hub[eh_id]))
+    }, error = function(e) NULL)
+    if (is.null(path) || !length(path) || !file.exists(path[1]))
+        return(NULL)
+    path[1]
 }
 
 #' Resolve a file resource to a local path
@@ -307,7 +341,7 @@ mcd_resource_file <- function(id) {
     for (backend in mcd_backends()) {
         path <- switch(backend,
             local  = .mcd_file_local(id, row),
-            eh     = NULL,
+            eh     = .mcd_file_eh(id, row),
             zenodo = .mcd_file_zenodo(id, row),
             stop("Unknown backend '", backend, "'.")
         )
